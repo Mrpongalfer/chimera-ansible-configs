@@ -16,14 +16,15 @@
 
 # --- UFW Management ---
 - name: Ensure ufw package is installed
-
-    - name: Reset UFW to installation defaults (CAUTION!)
-      community.general.ufw:
-        state: reset
-      tags: [security, firewall, ufw]
   ansible.builtin.apt:
     name: ufw
     state: present
+  tags: [security, firewall, ufw]
+
+# Reset UFW before defining rules to ensure clean state managed by Ansible
+- name: Reset UFW to installation defaults (CAUTION!)
+  community.general.ufw:
+    state: reset
   tags: [security, firewall, ufw]
 
 - name: Set UFW logging state
@@ -43,7 +44,6 @@
   notify: Reload ufw # Trigger handler
 
 # -- Apply Specific UFW Allow Rules based on Group --
-
 - name: Apply Server-specific UFW allow rules
   community.general.ufw:
     rule: "{{ item.rule | default('allow') }}"
@@ -69,9 +69,6 @@
   when: "'clients' in group_names" # Only run on hosts in 'clients' group
   tags: [security, firewall, ufw]
   notify: Reload ufw
-
-# Note: The previous generic SSH allow task and specific web/monitoring tasks are now replaced
-# by the loops above, driven by the group variables.
 
 - name: Ensure ufw is enabled and running
   community.general.ufw:
