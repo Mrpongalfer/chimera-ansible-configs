@@ -1,0 +1,26 @@
+# Ansible Managed: Docker Compose for Loki service
+# Location: {{ loki_compose_dir }}/docker-compose.yml
+
+version: '3.8' # Optional but common
+
+services:
+  loki:
+    image: grafana/loki:latest # Consider pinning version e.g., grafana/loki:2.9.5
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      # Bind Loki HTTP port (default 3100) - Use variable for port & bind IP
+      - "{{ loki_bind_ip | default('127.0.0.1') }}:{{ loki_port | default(3100) }}:3100"
+      # GRPC port (9096) often doesn't need host exposure unless specific need
+      # - "{{ loki_bind_ip | default('127.0.0.1') }}:9096:9096"
+    volumes:
+      - "{{ loki_config_dir }}/loki-config.yml:/etc/loki/config.yml"
+      - "{{ loki_data_dir }}:/loki" # Persistent data volume mapped to /loki inside
+    command: -config.file=/etc/loki/config.yml
+
+volumes:
+  loki_data: # Define named volume used above (can be local path via volume mount too)
+
+# networks: # Define if needed, e.g., connect to Grafana/Prometheus network
+#   monitor-net:
+

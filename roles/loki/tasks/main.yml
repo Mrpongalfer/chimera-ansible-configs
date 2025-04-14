@@ -1,2 +1,27 @@
+# /opt/architect_configs/roles/loki/tasks/main.yml
 ---
-# tasks file for roles/loki
+# Tasks to deploy Loki via Docker Compose
+
+- name: Set Loki configuration facts
+  ansible.builtin.set_fact:
+    loki_base_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}"
+    loki_compose_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}"
+    loki_config_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}/config"
+    loki_data_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}/data" # Host path for volume mount
+    loki_port: "{{ loki_port_override | default(3100) }}"
+    loki_bind_ip: "{{ loki_bind_ip_override | default('127.0.0.1') }}" # Default: Listen only on localhost
+  tags: [loki, config]
+
+- name: Ensure Loki directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root # Or dedicated user/group if needed for data volume permissions
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ loki_compose_dir }}"
+    - "{{ loki_config_dir }}"
+    - "{{ loki_data_dir }}" # Ensure data dir exists on host
+  tags: [loki, config]
+# ... (rest of tasks file content as provided before) ...
