@@ -1,2 +1,99 @@
+# /opt/architect_configs/roles/security/tasks/main.yml
 ---
-# tasks file for roles/security
+# Basic security hardening tasks (expand significantly for production)
+
+# --- SSHD Hardening (Basic Examples - Use Template module for full config) ---
+# Note: These lineinfile tasks are illustrative; a template is preferred.
+- name: Ensure SSH Port is set in sshd_config
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?\s*Port\s+'
+    line: "Port {{ security_ssh_port | default(22) }}"
+    validate: 'sshd -t -f %s' # Validate syntax after change
+  notify: Restart sshd # Trigger handler to restart sshd service if changed
+  tags: [security, sshd]
+
+- name: Ensure PasswordAuthentication is disabled in sshd_config
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?\s*PasswordAuthentication\s+'
+    line: "PasswordAuthentication no"
+    validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  tags: [security, sshd]
+
+- name: Ensure PermitRootLogin is disabled in sshd_config
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?\s*PermitRootLogin\s+'
+    line: "PermitRootLogin no" # Or prohibit-password
+    validate: 'sshd -t -f %s'
+  notify: Restart sshd
+  tags: [security, sshd]
+
+# --- UFW Management (using Ansible module) ---
+- name: Ensure ufw package is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  tags: [security, firewall, ufw]
+
+- name: Set UFW logging state
+  community.general.ufw:
+    logging: 'on' # Options: off, low, medium, high, full
+  tags: [security, firewall, ufw]
+
+- name: Set UFW default policies (Deny Incoming)
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+    - { direction: routed, policy: deny }
+  tags: [security, firewall, ufw]
+  notify: Reload ufw # Trigger handler
+
+# IMPORTANT: This only allows SSH globally. Add specific allow rules per host/group later.
+- name: Allow essential SSH connections globally (Refine later!)
+  community.general.ufw:
+    rule: allow
+    port: "{{ security_ssh_port | default(22) }}"
+    proto: tcp
+  tags: [security, firewall, ufw]
+  notify: Reload ufw
+
+# Add more specific UFW rules here later using host/group vars and conditions
+# Example: Allow web ports only on server group
+# - name: Allow HTTP/HTTPS on server
+#   community.general.ufw:
+#     rule: allow
+#     port: "{{ item }}"
+#     proto: tcp
+#   loop: [ '80', '443' ]
+#   when: "'server' in group_names" # Only run on hosts in 'server' group
+#   notify: Reload ufw
+#   tags: [security, firewall, ufw]
+
+- name: Ensure ufw is enabled and running
+  community.general.ufw:
+    state: enabled
+  tags: [security, firewall, ufw]
+
+# --- Fail2Ban ---
+- name: Ensure fail2ban package is installed
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+  when: security_fail2ban_enabled | default(false) # Use variable from group_vars/all.yml
+  tags: [security, fail2ban]
+
+- name: Ensure fail2ban service is enabled and running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: yes
+  when: security_fail2ban_enabled | default(false)
+  tags: [security, fail2ban]
+  # Add task to configure fail2ban (e.g., copy jail.local template) later
+

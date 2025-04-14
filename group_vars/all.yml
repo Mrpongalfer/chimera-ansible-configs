@@ -1,0 +1,40 @@
+# /opt/architect_configs/group_vars/all.yml
+---
+# Define variables applicable to all hosts (server and clients)
+
+# System settings
+system_timezone: "America/Denver" # Set your desired timezone consistently
+
+# User management
+# List admin users ensuring they exist (can add more later)
+# Ensure these users actually exist or tasks might fail/create them
+admin_users:
+  - username: aiseed
+    shell: /bin/bash
+  - username: pong
+    shell: /bin/bash
+
+# Package management
+common_packages_to_install:
+  - vim
+  - tmux
+  - curl
+  - wget
+  - htop
+  - ncdu
+  - tree
+  - unzip
+  - net-tools    # Provides ifconfig, netstat etc.
+  - dnsutils     # Provides dig, nslookup
+  - apt-transport-https # Often needed for custom apt repos
+  - ca-certificates     # Ensure up-to-date certs
+  - gnupg            # Often needed for adding repo keys
+  - python3-pip      # Useful Python package installer
+  - python3-venv     # For creating Python virtual environments
+
+# Security settings (can be overridden in group_vars/server.yml or clients.yml if needed)
+security_ssh_port: 22
+security_fail2ban_enabled: true # Set to false to disable fail2ban installation/config
+
+# Add other common variables as needed...
+
