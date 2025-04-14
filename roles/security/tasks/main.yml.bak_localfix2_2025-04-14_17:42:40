@@ -1,5 +1,5 @@
 ---
-# Tasks for security role - v1.8 Final Syntax Fix (No 'warn')
+# Tasks for security role - v1.7 Removed warn:false from shell task
 - name: Deploy hardened sshd_config from template
   ansible.builtin.template:
     src: sshd_config.j2
@@ -19,7 +19,7 @@
 # --- BEGIN FORCEFUL UFW RESET (warn: false removed) ---
 - name: Remove existing UFW user rule backups to prevent reset error
   ansible.builtin.shell: rm -f /etc/ufw/user.rules.* /etc/ufw/user6.rules.* /var/lib/ufw/user.rules.* /var/lib/ufw/user6.rules.*
-  # warn: false # <<< REMOVED
+  # warn: false # <<< REMOVED THIS LINE
   changed_when: false
   become: true
   tags: [security, ufw]
@@ -31,6 +31,7 @@
   tags: [security, ufw]
 # --- END FORCEFUL UFW RESET ---
 
+# ... (Rest of security role tasks from response #109 remain here) ...
 - name: Set UFW logging state
   community.general.ufw:
     logging: 'on'
@@ -71,7 +72,7 @@
     port: "{{ item.port | default(omit) }}"
     proto: "{{ item.proto | default('any') }}"
     comment: "{{ item.comment | default(omit) }}"
-  loop: "{{ client_ufw_allow_rules | default([]) }}" # Define this var for clients
+  loop: "{{ client_ufw_allow_rules | default([]) }}"
   when: inventory_hostname in groups['clients']
   notify: Reload ufw
   tags: [security, ufw]
@@ -82,7 +83,6 @@
   tags: [security, ufw]
 
 # --- Fail2ban Section ---
-# (Assuming content from previous version or user's repo)
 - name: Ensure fail2ban package is installed
   ansible.builtin.apt:
     name: fail2ban
@@ -92,7 +92,7 @@
 
 - name: Deploy fail2ban jail.local configuration from template
   ansible.builtin.template:
-    src: jail.local.j2 # Assumes template exists
+    src: jail.local.j2
     dest: /etc/fail2ban/jail.local
     owner: root
     group: root
