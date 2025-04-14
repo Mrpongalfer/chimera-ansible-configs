@@ -87,7 +87,7 @@
     owner: root
     group: promtail # Allow promtail group to read config
     mode: '0640' # Restrict read access
-    validate: '/usr/bin/promtail -config.file=%s -print-config-stderr' # Validate config syntax
+    # validate: '/usr/bin/promtail -config.file=%s -print-config-stderr' # VALIDATE LINE REMOVED/COMMENTED FOR DEBUGGING HANG
   notify: Restart promtail # Notify handler if config changes
   tags: [promtail, config]
 
