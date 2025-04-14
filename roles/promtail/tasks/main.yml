@@ -1,2 +1,62 @@
+# /opt/architect_configs/roles/promtail/tasks/main.yml
 ---
-# tasks file for roles/promtail
+# Tasks for installing and configuring Promtail log agent
+
+- name: Ensure prerequisites for Grafana APT repo are installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - software-properties-common # Provides add-apt-repository potentially
+      - wget
+    state: present
+  tags: [promtail, packages, repo]
+
+- name: Add Grafana GPG key
+  ansible.builtin.apt_key:
+    url: https://apt.grafana.com/gpg.key
+    state: present
+    keyring: /usr/share/keyrings/grafana.gpg # Specify keyring location
+  tags: [promtail, packages, repo]
+
+- name: Add Grafana APT repository (for Promtail)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+    state: present
+    filename: grafana # /etc/apt/sources.list.d/grafana.list
+    update_cache: yes
+  tags: [promtail, packages, repo]
+
+- name: Ensure promtail package is installed
+  ansible.builtin.apt:
+    name: promtail
+    state: present
+  tags: [promtail, packages]
+  notify: Restart promtail # Notify handler if installed/updated
+
+- name: Ensure Promtail config directory exists
+  ansible.builtin.file:
+    path: /etc/promtail
+    state: directory
+    owner: root
+    group: root # Promtail package usually creates 'promtail' user/group - adjust if needed
+    mode: '0755'
+  tags: [promtail, config]
+
+- name: Deploy Promtail configuration from template
+  ansible.builtin.template:
+    src: promtail-config.yml.j2 # Template file in roles/promtail/templates/
+    dest: /etc/promtail/config.yml
+    owner: root
+    group: root # Or 'promtail' group? Needs verification after package install
+    mode: '0640' # Restrict read access
+    validate: '/usr/bin/promtail -config.file=%s -print-config-stderr' # Validate config syntax
+  notify: Restart promtail # Notify handler if config changes
+  tags: [promtail, config]
+
+- name: Ensure promtail service is enabled and running
+  ansible.builtin.service:
+    name: promtail
+    state: started
+    enabled: yes
+  tags: [promtail, service]
+
