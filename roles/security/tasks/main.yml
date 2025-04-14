@@ -16,6 +16,11 @@
 
 # --- UFW Management ---
 - name: Ensure ufw package is installed
+
+    - name: Reset UFW to installation defaults (CAUTION!)
+      community.general.ufw:
+        state: reset
+      tags: [security, firewall, ufw]
   ansible.builtin.apt:
     name: ufw
     state: present
@@ -37,50 +42,36 @@
   tags: [security, firewall, ufw]
   notify: Reload ufw # Trigger handler
 
-# -- UFW Allow Rules --
-# Note: Manage these more dynamically with variables in group_vars/host_vars
+# -- Apply Specific UFW Allow Rules based on Group --
 
-- name: Allow SSH connections from specified sources
+- name: Apply Server-specific UFW allow rules
   community.general.ufw:
-    rule: allow
-    port: "{{ security_ssh_port | default(22) }}"
-    proto: tcp
-    src: "{{ item }}"
-  loop: "{{ security_ufw_allow_ssh_sources | default(['any']) }}" # Define 'security_ufw_allow_ssh_sources' list in vars. Default 'any' is INSECURE.
-  tags: [security, firewall, ufw, ssh]
+    rule: "{{ item.rule | default('allow') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    src: "{{ item.src | default(omit) }}" # Use 'omit' if src not defined in item
+    dest: "{{ item.dest | default(omit) }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ server_ufw_allow_rules | default([]) }}" # Loop through list in group_vars/server.yml
+  when: "'server' in group_names" # Only run on hosts in 'server' group
+  tags: [security, firewall, ufw]
   notify: Reload ufw
 
-# Example: Allow web ports only on server group
-- name: Allow HTTP/HTTPS on server group
+- name: Apply Client-specific UFW allow rules
   community.general.ufw:
-    rule: allow
-    port: "{{ item }}"
-    proto: tcp
-    # Note: No 'src' means allow from 'any' by default for these ports on the server
-  loop: [ '80', '443' ]
-  when: "'server' in group_names" # Only run on hosts in 'server' group defined in inventory
+    rule: "{{ item.rule | default('allow') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    src: "{{ item.src | default(omit) }}"
+    dest: "{{ item.dest | default(omit) }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ client_ufw_allow_rules | default([]) }}" # Loop through list in group_vars/clients.yml
+  when: "'clients' in group_names" # Only run on hosts in 'clients' group
+  tags: [security, firewall, ufw]
   notify: Reload ufw
-  tags: [security, firewall, ufw, web]
 
-# Example: Allow Grafana/Loki only on server group from specific internal source
-- name: Allow Monitoring ports on server group from specified sources # CORRECTED TASK
-  community.general.ufw:
-    rule: allow
-    port: "{{ item.port }}" # Use item.port here
-    proto: tcp
-    src: "{{ item.source }}" # Use item.source here
-  loop:
-    # Allow from localhost for server itself
-    - { port: '3000', source: '127.0.0.1' } # Grafana
-    - { port: '3100', source: '127.0.0.1' } # Loki
-    # Allow from specific subnet defined in vars
-    - { port: '3000', source: "{{ monitoring_allowed_sources | default('192.168.0.0/24') }}" } # Grafana
-    - { port: '3100', source: "{{ monitoring_allowed_sources | default('192.168.0.0/24') }}" } # Loki
-  when: "'server' in group_names"
-  notify: Reload ufw
-  tags: [security, firewall, ufw, monitoring]
-
-# Add rules to explicitly DENY everything not allowed if needed, though default deny helps.
+# Note: The previous generic SSH allow task and specific web/monitoring tasks are now replaced
+# by the loops above, driven by the group variables.
 
 - name: Ensure ufw is enabled and running
   community.general.ufw:
