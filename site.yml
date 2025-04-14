@@ -1,0 +1,29 @@
+# /opt/architect_configs/site.yml
+---
+- name: Apply common configuration to all hosts
+  hosts: all # Targets both [server] and [clients] groups
+  become: yes
+  gather_facts: yes # Gather facts for use in roles/templates
+  roles:
+    - common # Apply tasks from roles/common/tasks/main.yml
+
+- name: Apply security baseline to all hosts
+  hosts: all
+  become: yes
+  roles:
+    - security # Apply tasks from roles/security/tasks/main.yml
+
+- name: Configure server-specific settings
+  hosts: server # Targets only the [server] group (localhost)
+  become: yes
+  roles:
+    # Add server-specific roles here later (e.g., nginx, grafana, loki)
+    - prompt_debug # Placeholder, replace with actual server roles
+
+- name: Configure client-specific settings
+  hosts: clients # Targets only the [clients] group (192.168.0.96)
+  become: yes
+  roles:
+    # Add client-specific roles here later (e.g., desktop_tools, development_env)
+    # - role: docker # Example if installing Docker on client
+    - prompt_debug # Placeholder, replace with actual client roles
