@@ -1,5 +1,5 @@
 ---
-# Tasks for security role - v1.5 Corrected YAML Syntax
+# Tasks for security role - v1.3 Corrected Forceful UFW Reset
 - name: Deploy hardened sshd_config from template
   ansible.builtin.template:
     src: sshd_config.j2
@@ -16,18 +16,17 @@
     state: present
   tags: [security, ufw]
 
-# --- BEGIN FORCEFUL UFW RESET (Corrected YAML Syntax v2) ---
+# --- BEGIN FORCEFUL UFW RESET (Corrected Syntax) ---
 - name: Remove existing UFW user rule backups to prevent reset error
   ansible.builtin.shell: rm -f /etc/ufw/user.rules.* /etc/ufw/user6.rules.* /var/lib/ufw/user.rules.* /var/lib/ufw/user6.rules.*
-  # Parameters indented exactly 2 spaces relative to '- name:'
-  warn: false
-  changed_when: false
+  warn: false # <<< Correct placement (parameter of shell module)
+  changed_when: false # This action doesn't represent config change
   become: true
   tags: [security, ufw]
 
 - name: Reset UFW to installation defaults (Forceful)
   ansible.builtin.command: ufw --force reset
-  changed_when: true
+  changed_when: true # Assume reset always changes state
   notify: Reload ufw
   tags: [security, ufw]
 # --- END FORCEFUL UFW RESET ---
@@ -72,7 +71,7 @@
     port: "{{ item.port | default(omit) }}"
     proto: "{{ item.proto | default('any') }}"
     comment: "{{ item.comment | default(omit) }}"
-  loop: "{{ client_ufw_allow_rules | default([]) }}"
+  loop: "{{ client_ufw_allow_rules | default([]) }}" # Define this var for clients
   when: inventory_hostname in groups['clients']
   notify: Reload ufw
   tags: [security, ufw]
@@ -83,6 +82,7 @@
   tags: [security, ufw]
 
 # --- Fail2ban Section ---
+# (Assuming content from previous version or user's repo)
 - name: Ensure fail2ban package is installed
   ansible.builtin.apt:
     name: fail2ban
@@ -92,7 +92,7 @@
 
 - name: Deploy fail2ban jail.local configuration from template
   ansible.builtin.template:
-    src: jail.local.j2
+    src: jail.local.j2 # Assumes template exists
     dest: /etc/fail2ban/jail.local
     owner: root
     group: root

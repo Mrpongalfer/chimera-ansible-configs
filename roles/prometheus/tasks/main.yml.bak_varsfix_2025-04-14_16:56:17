@@ -1,0 +1,105 @@
+---
+# Tasks for Prometheus role - v1.3 Enhanced Template Handling
+- name: Set Prometheus configuration facts
+  ansible.builtin.set_fact:
+    prometheus_config_dir: "/opt/docker/prometheus/config"
+    prometheus_data_dir: "/opt/docker/prometheus/data"
+    prometheus_compose_dir: "/opt/docker/prometheus"
+    prometheus_port: "{{ prometheus_port_override | default(9090) }}"
+    # Recommend defining 'docker_run_user/group' variables in group_vars/server or all
+    docker_run_user: "aiseed" # Example: Use 'aiseed' or 'root' or dedicated user
+    docker_run_group: "aiseed" # Example
+    _prometheus_template_name: "docker-compose.yml.j2"
+    _prometheus_template_path_relative: "templates/{{ _prometheus_template_name }}"
+    _prometheus_template_path_absolute: "{{ role_path }}/templates/{{ _prometheus_template_name }}"
+    _prometheus_placeholder_indicator: "# Placeholder for docker-compose.yml.j2 created by Chimera"
+
+- name: Ensure Prometheus directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ docker_run_user }}"
+    group: "{{ docker_run_group }}"
+    mode: '0755'
+  loop:
+    - "{{ prometheus_compose_dir }}"
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+    - "{{ role_path }}/templates" # Ensure templates dir exists
+
+- name: Deploy Prometheus configuration file from template (prometheus.yml)
+  ansible.builtin.template:
+    src: prometheus.yml.j2 # Assumes this template exists in role
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    owner: "{{ docker_run_user }}"
+    group: "{{ docker_run_group }}"
+    mode: '0644'
+  notify: Restart Prometheus container
+
+- name: Ensure Docker Compose V2 is available
+  ansible.builtin.command: docker compose version
+  register: compose_version_check
+  changed_when: false
+  failed_when: compose_version_check.rc != 0
+
+# --- BEGIN ENHANCED TEMPLATE CHECK & GENERATION ---
+- name: Check if Prometheus docker-compose template exists
+  ansible.builtin.stat:
+    path: "{{ _prometheus_template_path_absolute }}"
+  register: prometheus_template_stat
+
+- name: Generate placeholder Prometheus docker-compose template if missing
+  ansible.builtin.copy:
+    dest: "{{ _prometheus_template_path_absolute }}"
+    content: |
+      # {{ _prometheus_placeholder_indicator }}
+      # WARNING: This is NOT a functional configuration.
+      # Please replace this content with your actual Prometheus docker-compose template via Git.
+
+      version: '3.7'
+
+      services:
+        prometheus:
+          image: prom/prometheus:latest
+          container_name: prometheus
+          volumes:
+            - {{ prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - {{ prometheus_data_dir }}:/prometheus
+          command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+          ports:
+            - "{{ prometheus_port | default('9090') }}:9090"
+          restart: unless-stopped
+          # user: "nobody:nobody" # Consider volume permissions first
+    mode: '0644'
+  when: not prometheus_template_stat.stat.exists
+  register: placeholder_created
+
+- name: WARN If placeholder template was created or is still present
+  ansible.builtin.debug:
+    msg: "CRITICAL WARNING: Prometheus is configured using a PLACEHOLDER template ('{{ _prometheus_template_path_absolute }}'). Deployment may succeed but WILL NOT be functional. Replace placeholder content via Git ASAP."
+  # Check if we just created it OR if the file exists and contains the placeholder text
+  when: placeholder_created.changed or (prometheus_template_stat.stat.exists and lookup('file', _prometheus_template_path_absolute) is search(_prometheus_placeholder_indicator))
+
+# --- END ENHANCED TEMPLATE CHECK & GENERATION ---
+
+- name: Deploy Prometheus docker-compose.yml file from template
+  ansible.builtin.template:
+    src: "{{ _prometheus_template_name }}" # Uses var defined above
+    dest: "{{ prometheus_compose_dir }}/docker-compose.yml"
+    owner: "{{ docker_run_user }}"
+    group: "{{ docker_run_group }}"
+    mode: '0644'
+  notify: Start Prometheus container # Notify start/restart handler
+
+# Add task to manage container (docker compose up -d) etc.
+- name: Ensure Prometheus container is running via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ prometheus_compose_dir }}"
+    state: present # Creates and starts containers
+    pull: policy # Pull if image missing or policy dictates
+  register: compose_result
+  # Add handlers for Start/Restart Prometheus container
