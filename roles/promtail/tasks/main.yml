@@ -40,7 +40,7 @@
     state: stopped
   ignore_errors: yes # Ignore error if service is not installed or already stopped
   changed_when: false # Don't report change for stopping
-  tags: [promtail, service, setup] # Tag appropriately
+  tags: [promtail, service, setup]
 
 # --- User/Group and Directory Setup ---
 - name: Ensure promtail group exists
@@ -76,7 +76,7 @@
     state: directory
     owner: promtail # Ensure correct owner
     group: promtail # Ensure correct group
-    mode: '0750' # Restrict access
+    mode: '0775' # CORRECTED: Changed mode to allow group write
   tags: [promtail, config, permissions]
 
 # --- Configuration Deployment ---
@@ -87,7 +87,8 @@
     owner: root
     group: promtail # Allow promtail group to read config
     mode: '0640' # Restrict read access
-    # validate: '/usr/bin/promtail -config.file=%s -print-config-stderr' # VALIDATE LINE REMOVED/COMMENTED FOR DEBUGGING HANG
+    # Removed validate step temporarily during previous debug
+    # validate: '/usr/bin/promtail -config.file=%s -print-config-stderr'
   notify: Restart promtail # Notify handler if config changes
   tags: [promtail, config]
 

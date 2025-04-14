@@ -72,6 +72,7 @@
   gather_facts: no
   roles:
     - prometheus # Prometheus role ONLY here
+    - loki
     # - loki # Add Loki role here later
     # - grafana # Add Grafana role here later
 
