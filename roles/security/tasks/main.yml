@@ -38,7 +38,7 @@
   notify: Reload ufw # Trigger handler
 
 # -- UFW Allow Rules --
-# Note: Manage these dynamically with variables in group_vars/host_vars
+# Note: Manage these more dynamically with variables in group_vars/host_vars
 
 - name: Allow SSH connections from specified sources
   community.general.ufw:
@@ -63,12 +63,12 @@
   tags: [security, firewall, ufw, web]
 
 # Example: Allow Grafana/Loki only on server group from specific internal source
-- name: Allow Monitoring ports on server group from specified sources
+- name: Allow Monitoring ports on server group from specified sources # CORRECTED TASK
   community.general.ufw:
     rule: allow
-    port: "{{ item }}"
+    port: "{{ item.port }}" # Use item.port here
     proto: tcp
-    src: "{{ item.source }}"
+    src: "{{ item.source }}" # Use item.source here
   loop:
     # Allow from localhost for server itself
     - { port: '3000', source: '127.0.0.1' } # Grafana
