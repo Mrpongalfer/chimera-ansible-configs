@@ -48,3 +48,22 @@ docker_users_to_group:
 # URL for the Loki server where Promtail will send logs
 # Pointing to the server itself where Loki will run (adjust if Loki is elsewhere)
 loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
+
+# --- Package Management --- (Re-added)
+common_packages_to_install:
+  - vim
+  - tmux
+  - curl
+  - wget
+  - htop
+  - ncdu
+  - tree
+  - unzip
+  - net-tools    # Provides ifconfig, netstat etc.
+  - dnsutils     # Provides dig, nslookup
+  - apt-transport-https # Often needed for custom apt repos
+  - ca-certificates     # Ensure up-to-date certs
+  - gnupg            # Often needed for adding repo keys
+  - python3-pip      # Useful Python package installer
+  - python3-venv     # For creating Python virtual environments
+  # chrony is handled by its own task in common role now, removed from list
