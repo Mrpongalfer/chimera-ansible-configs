@@ -1,0 +1,5 @@
+[server]
+localhost ansible_connection=local ansible_user=aiseed
+
+[clients]
+192.168.0.96 ansible_user=pong ansible_private_key_file=/home/aiseed/.ssh/ansible_client_key
