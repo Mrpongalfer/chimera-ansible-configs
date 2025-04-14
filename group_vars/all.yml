@@ -46,3 +46,20 @@ loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
 # --- Variables potentially used by Security Role UFW tasks ---
 monitoring_allowed_sources: '192.168.0.0/24' # Review subnet if needed
 
+
+# Defines packages to be installed by the 'common' role on all hosts
+common_packages_to_install:
+  - build-essential # Common development tools (gcc, make, etc.)
+  - python3-dev # Headers for compiling Python extensions
+  - curl
+  - wget
+  - git
+  - vim
+  - tmux
+  - htop
+  - net-tools # ifconfig, netstat, etc.
+  - dnsutils # dig, nslookup
+  - unzip
+  - ca-certificates # Should be present, but ensure
+  - gnupg # Needed for managing GPG keys
+  # - Add other truly common packages needed on ALL hosts here
