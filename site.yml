@@ -4,23 +4,87 @@
   hosts: all # Targets both [server] and [clients] groups
   become: yes
   gather_facts: yes # Gather facts for use in roles/templates
+  vars:
+    # --- Consolidated Variables (Previously in group_vars/all.yml) ---
+
+    # System settings
+    system_timezone: "America/Denver"
+
+    # User management
+    admin_users:
+      - username: aiseed
+        shell: /bin/bash
+      - username: pong
+        shell: /bin/bash
+
+    # Package Management (Using renamed variable)
+    baseline_system_packages:
+      - vim
+      - tmux
+      - curl
+      - wget
+      - htop
+      - ncdu
+      - tree
+      - unzip
+      - net-tools
+      - dnsutils
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - python3-pip
+      - python3-venv
+
+    # Security Role Variables
+    security_ssh_port: 22
+    security_fail2ban_enabled: true
+    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Review subnet if needed
+
+    # Docker Role Variables
+    docker_users_to_group:
+      - aiseed
+      - pong
+
+    # Promtail Role Variables
+    loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
+
+    # Security Role UFW Variable (used by server group context)
+    monitoring_allowed_sources: '192.168.0.0/24' # Review subnet if needed
+
   roles:
     - common # Apply tasks from roles/common/tasks/main.yml
 
 - name: Apply security baseline to all hosts
   hosts: all
   become: yes
+  # Note: security role tasks will use variables defined in the first play above
+  # because play vars have high precedence.
   roles:
     - security # Apply tasks from roles/security/tasks/main.yml
-    - node_exporter
-    - promtail
+
+- name: Configure Docker on all hosts # Added Docker role apply here
+  hosts: all
+  become: yes
+  roles:
     - docker
+
+- name: Configure Node Exporter on all hosts # Added node_exporter role apply here
+  hosts: all
+  become: yes
+  roles:
+    - node_exporter
+
+- name: Configure Promtail on all hosts # Added promtail role apply here
+  hosts: all
+  become: yes
+  roles:
+    - promtail
 
 - name: Configure server-specific settings
   hosts: server # Targets only the [server] group (localhost)
   become: yes
   roles:
-    # Add server-specific roles here later (e.g., nginx, grafana, loki)
+    # Add server-specific roles here later (e.g., nginx, grafana, loki, prometheus)
     - prompt_debug # Placeholder, replace with actual server roles
 
 - name: Configure client-specific settings
@@ -28,5 +92,5 @@
   become: yes
   roles:
     # Add client-specific roles here later (e.g., desktop_tools, development_env)
-    # - role: docker # Example if installing Docker on client
     - prompt_debug # Placeholder, replace with actual client roles
+
