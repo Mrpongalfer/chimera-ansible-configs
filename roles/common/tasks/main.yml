@@ -1,4 +1,5 @@
 # /opt/architect_configs/roles/common/tasks/main.yml
+# Version 1.1 - Added debug task
 ---
 # Tasks applied to all hosts for common baseline configuration
 
@@ -8,6 +9,13 @@
     cache_valid_time: 3600 # Only update if cache is > 1 hour old
   changed_when: false # Prevent this task alone from reporting 'changed' status
   tags: [common, packages, apt]
+
+# --- BEGIN DEBUG TASK ---
+- name: DEBUG - Print common_packages_to_install BEFORE apt task
+  ansible.builtin.debug:
+    var: common_packages_to_install
+  tags: [common, packages, apt, debug] # Add debug tag
+# --- END DEBUG TASK ---
 
 - name: Install common packages defined in group_vars/all.yml
   ansible.builtin.apt:
@@ -35,19 +43,13 @@
   tags: [common, system, ntp]
 
 # Basic user check - ensures specified users exist with correct shell
-# Note: Does not manage passwords or detailed group memberships here.
 - name: Ensure admin users exist
   ansible.builtin.user:
     name: "{{ item.username }}"
     shell: "{{ item.shell }}"
     state: present
-    # append: yes # Use if adding users to supplementary groups
-    # groups: sudo # Example: ensure they are in sudo group
   loop: "{{ admin_users }}" # Loop through the list defined in group_vars/all.yml
   tags: [common, users]
 
 # Add other common tasks below as needed:
-# - Basic sysctl tuning (e.g., using ansible.posix.sysctl)
-# - Managing MOTD (e.g., using ansible.builtin.template)
-# - Ensuring specific directories exist
 
