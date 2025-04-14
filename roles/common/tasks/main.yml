@@ -11,28 +11,28 @@
 
 - name: Install common packages defined in group_vars/all.yml
   ansible.builtin.apt:
-    name: "{{ common_packages_to_install }}" # Uses variable list from group_vars/all.yml
+    name: "{{ common_packages_to_install }}" # Uses the variable list from group_vars/all.yml
     state: present
   tags: [common, packages, apt]
 
 - name: Set system timezone
   community.general.timezone:
-    name: "{{ system_timezone }}" # Uses variable from group_vars/all.yml
+    name: "{{ system_timezone }}" # Uses the variable
   tags: [common, system, timezone]
 
-    # --- NTP Configuration (using Chrony) ---
-    - name: Ensure chrony NTP client is installed
-      ansible.builtin.apt:
-        name: chrony
-        state: present
-      tags: [common, system, ntp]
+# --- NTP Configuration (using Chrony) ---
+- name: Ensure chrony NTP client is installed
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+  tags: [common, system, ntp]
 
-    - name: Ensure chrony service is enabled and running
-      ansible.builtin.service:
-        name: chrony # Service name might be chronyd on some systems
-        state: started
-        enabled: yes
-      tags: [common, system, ntp]
+- name: Ensure chrony service is enabled and running
+  ansible.builtin.service:
+    name: chrony # Service name might be chronyd on some systems, check service status if fails
+    state: started
+    enabled: yes
+  tags: [common, system, ntp]
 
 # Basic user check - ensures specified users exist with correct shell
 # Note: Does not manage passwords or detailed group memberships here.
@@ -41,7 +41,9 @@
     name: "{{ item.username }}"
     shell: "{{ item.shell }}"
     state: present
-  loop: "{{ admin_users }}" # Loop through list defined in group_vars/all.yml
+    # append: yes # Use if adding users to supplementary groups
+    # groups: sudo # Example: ensure they are in sudo group
+  loop: "{{ admin_users }}" # Loop through the list defined in group_vars/all.yml
   tags: [common, users]
 
 # Add other common tasks below as needed:
