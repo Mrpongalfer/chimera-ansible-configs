@@ -1,0 +1,3 @@
+
+# Ignore Ansible Vault Password File
+~/.ansible_vault_pass
