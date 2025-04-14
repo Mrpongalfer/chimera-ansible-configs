@@ -1,19 +1,21 @@
 ---
-# Tasks for Prometheus role - v1.1 Added Template Check
+# Tasks for Prometheus role - v1.2 Generate Placeholder Template
 - name: Set Prometheus configuration facts
   ansible.builtin.set_fact:
     prometheus_config_dir: "/opt/docker/prometheus/config"
     prometheus_data_dir: "/opt/docker/prometheus/data"
     prometheus_compose_dir: "/opt/docker/prometheus"
     prometheus_port: "{{ prometheus_port_override | default(9090) }}"
-    # Add other facts as needed
+    # Recommend defining 'docker_run_user/group' variables in group_vars/server or all
+    docker_run_user: "aiseed" # Example: Use 'aiseed' or 'root' or dedicated user
+    docker_run_group: "aiseed" # Example
 
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ docker_run_user | default('root') }}" # Needs variable for user running docker/compose
-    group: "{{ docker_run_group | default('root') }}"
+    owner: "{{ docker_run_user }}"
+    group: "{{ docker_run_group }}"
     mode: '0755'
   loop:
     - "{{ prometheus_compose_dir }}"
@@ -22,10 +24,10 @@
 
 - name: Deploy Prometheus configuration file from template (prometheus.yml)
   ansible.builtin.template:
-    src: prometheus.yml.j2 # Assumes this template exists
+    src: prometheus.yml.j2 # Assumes this template exists in role
     dest: "{{ prometheus_config_dir }}/prometheus.yml"
-    owner: "{{ docker_run_user | default('root') }}"
-    group: "{{ docker_run_group | default('root') }}"
+    owner: "{{ docker_run_user }}"
+    group: "{{ docker_run_group }}"
     mode: '0644'
   notify: Restart Prometheus container # Assumes handler exists
 
@@ -35,34 +37,91 @@
   changed_when: false
   failed_when: compose_version_check.rc != 0
 
-# --- BEGIN TEMPLATE CHECK ---
+# --- BEGIN TEMPLATE CHECK & GENERATION ---
+- name: Define template path variable
+  ansible.builtin.set_fact:
+    _prometheus_template_name: "docker-compose.yml.j2"
+    _prometheus_template_path_relative: "templates/docker-compose.yml.j2"
+    _prometheus_template_path_absolute: "{{ role_path }}/templates/docker-compose.yml.j2"
+
 - name: Check if Prometheus docker-compose template exists
   ansible.builtin.stat:
-    path: "{{ PROMETHEUS_TEMPLATE_PATH }}" # Uses variable defined below for clarity
-  vars:
-    PROMETHEUS_TEMPLATE_PATH: "templates/docker-compose.yml.j2" # Path relative to ROLE root
+    path: "{{ _prometheus_template_path_absolute }}"
   register: prometheus_template_stat
 
-- name: Fail if Prometheus docker-compose template is missing
-  ansible.builtin.fail:
-    msg: |
-      Required Prometheus template file not found!
-      Path expected relative to role: '{{ PROMETHEUS_TEMPLATE_PATH }}'
-      (Full path expected: '{{ role_path }}/{{ PROMETHEUS_TEMPLATE_PATH }}')
-      Please create this file with the correct docker-compose content in the
-      '{{ role_path }}/templates/' directory within the Git repository.
+- name: Create template directory if missing
+  ansible.builtin.file:
+    path: "{{ role_path }}/templates"
+    state: directory
+    mode: '0755'
   when: not prometheus_template_stat.stat.exists
-# --- END TEMPLATE CHECK ---
+
+- name: Generate placeholder Prometheus docker-compose template if missing
+  ansible.builtin.copy:
+    dest: "{{ _prometheus_template_path_absolute }}"
+    content: |
+      # WARNING: AI-Generated Placeholder by Chimera v2.7 (Rick Sanchez Protocol)
+      # Review and adapt this configuration CAREFULLY for your environment via Git.
+      # It provides a BASIC Prometheus setup only. Needs volume permission handling.
+
+      version: '3.7'
+
+      services:
+        prometheus:
+          image: prom/prometheus:latest
+          container_name: prometheus
+          volumes:
+            # Mount generated config file (prometheus.yml.j2 renders to this path)
+            - {{ prometheus_config_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            # Mount data volume (ensure host path has correct owner for container user)
+            - {{ prometheus_data_dir }}:/prometheus
+          command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+            # - '--web.enable-remote-write-receiver'
+          ports:
+            - "{{ prometheus_port | default('9090') }}:9090"
+          restart: unless-stopped
+          # user: "nobody:nobody" # Ensure data volume owned by 65534:65534 first
+    mode: '0644'
+  when: not prometheus_template_stat.stat.exists
+  register: placeholder_created
+
+- name: Display warning if placeholder was created
+  ansible.builtin.debug:
+    msg: "WARNING: Placeholder template created at {{ _prometheus_template_path_absolute }}. Review and replace its content via Git for functional Prometheus deployment."
+  when: placeholder_created.changed
+# --- END TEMPLATE CHECK & GENERATION ---
 
 - name: Deploy Prometheus docker-compose.yml file from template
   ansible.builtin.template:
-    src: docker-compose.yml.j2 # This path is now verified to exist by the task above
+    src: "{{ _prometheus_template_name }}" # Use variable for consistency
     dest: "{{ prometheus_compose_dir }}/docker-compose.yml"
-    owner: "{{ docker_run_user | default('root') }}"
-    group: "{{ docker_run_group | default('root') }}"
+    owner: "{{ docker_run_user }}"
+    group: "{{ docker_run_group }}"
     mode: '0644'
-  notify: Restart Prometheus container
+  notify: Start Prometheus container # Changed handler name slightly
 
-# Add tasks to manage container (docker compose up -d) etc.
-# ...
+# Add task to manage container (docker compose up -d in compose_dir)
+- name: Ensure Prometheus container is running via Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ prometheus_compose_dir }}"
+    state: present # Creates and starts containers
+    pull: policy # Pull if image missing or policy dictates
+  register: compose_result
+
+# Example handler name change
+# handlers:
+#   - name: Restart Prometheus container
+#     community.docker.docker_compose_v2:
+#       project_src: "{{ prometheus_compose_dir }}"
+#       state: present
+#       restarted: true
+#   - name: Start Prometheus container # New handler name
+#     community.docker.docker_compose_v2:
+#       project_src: "{{ prometheus_compose_dir }}"
+#       state: present
+#       started: true
 
