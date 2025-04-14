@@ -1,5 +1,5 @@
 ---
-# Simplified for debugging variable loading
+# Simplified for debugging variable loading - v1.1
 common_pkgs:
   - build-essential
   - python3-dev
