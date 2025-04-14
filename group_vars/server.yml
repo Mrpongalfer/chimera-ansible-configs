@@ -1,0 +1,12 @@
+# /opt/architect_configs/group_vars/server.yml
+---
+# Server Specific UFW Rules - MINIMAL SECURE DEFAULTS
+
+server_ufw_allow_rules:
+  # Allow SSH ONLY from the specific client IP and localhost for management
+  - { rule: allow, port: "{{ security_ssh_port | default(22) }}", proto: tcp, src: '192.168.0.96', comment: "Allow SSH from Client 'pong@pop-os'" }
+  - { rule: allow, port: "{{ security_ssh_port | default(22) }}", proto: tcp, src: '127.0.0.1', comment: "Allow SSH from Localhost" }
+
+  # Other ports (Web, Monitoring, Docker) ARE NOT OPENED EXTERNALLY BY DEFAULT.
+  # We will add rules here specifically when we configure those services.
+  # Example for later: - { rule: allow, port: '443', proto: tcp, src: 'any', comment: "Allow HTTPS for Nginx" }

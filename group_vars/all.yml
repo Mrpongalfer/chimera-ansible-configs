@@ -1,13 +1,11 @@
 # /opt/architect_configs/group_vars/all.yml
 ---
-# Define variables applicable to all hosts (server and clients)
+# Variables applicable to all hosts
 
 # System settings
-system_timezone: "America/Denver" # Set your desired timezone consistently
+system_timezone: "America/Denver"
 
 # User management
-# List admin users ensuring they exist (can add more later)
-# Ensure these users actually exist or tasks might fail/create them
 admin_users:
   - username: aiseed
     shell: /bin/bash
@@ -24,44 +22,24 @@ common_packages_to_install:
   - ncdu
   - tree
   - unzip
-  - net-tools    # Provides ifconfig, netstat etc.
-  - dnsutils     # Provides dig, nslookup
-  - apt-transport-https # Often needed for custom apt repos
-  - ca-certificates     # Ensure up-to-date certs
-  - gnupg            # Often needed for adding repo keys
-  - python3-pip      # Useful Python package installer
-  - python3-venv     # For creating Python virtual environments
-
-# Security settings (can be overridden in group_vars/server.yml or clients.yml if needed)
-security_ssh_port: 22
-security_fail2ban_enabled: true # Set to false to disable fail2ban installation/config
-
-# Add other common variables as needed...
-
+  - net-tools
+  - dnsutils
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - python3-pip
+  - python3-venv
+  - chrony # Ensure chrony is listed here now
 
 # --- Variables for Security Role ---
+security_ssh_port: 22
+security_fail2ban_enabled: true
+# Define ignoreip here, assuming local subnet is generally trusted for fail2ban
+# Review this subnet if your local network differs from 192.168.0.x
+fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
 
-# List of IPs/Subnets allowed to connect via SSH (port defined earlier as security_ssh_port)
-# Recommendation: Be as specific as possible. Avoid 'any' in production.
-security_ufw_allow_ssh_sources:
-  - '192.168.0.96'   # Client IP added during bootstrap
-  - '127.0.0.1'      # Always allow localhost
-  # - '10.1.1.0/24'    # Example: Allow specific internal subnet
-  # - 'YOUR_VPN_SUBNET' # Example: Allow access over VPN
-
-# List of IPs/Subnets allowed access to monitoring ports (Grafana 3000, Loki 3100) on server
-# This variable is only used when the 'server' group is targeted in the task
-monitoring_allowed_sources: '192.168.0.0/24' # Example: Allow entire local /24 subnet
-
-# List of IPs/Subnets for Fail2Ban to ignore (space separated string)
-fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Example: Ignore localhost and local /24 subnet
-
-# Optional: Define allowed users for SSH via sshd_config template
-# ssh_allow_users:
-#   - aiseed
-#   - pong
-
-# --- Variables for Docker Role ---
-docker_users_to_group: # List of users to add to the docker group
+# Variables for Docker Role
+docker_users_to_group:
   - aiseed
   - pong
+
