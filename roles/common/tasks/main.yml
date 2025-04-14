@@ -11,15 +11,15 @@
   tags: [common, packages, apt]
 
 # --- BEGIN DEBUG TASK ---
-- name: DEBUG - Print common_packages_to_install BEFORE apt task
+- name: DEBUG - Print common_pkgs BEFORE apt task
   ansible.builtin.debug:
-    var: common_packages_to_install
+    var: common_pkgs
   tags: [common, packages, apt, debug] # Add debug tag
 # --- END DEBUG TASK ---
 
 - name: Install common packages defined in group_vars/all.yml
   ansible.builtin.apt:
-    name: "{{ common_packages_to_install }}" # Uses the variable list from group_vars/all.yml
+    name: "{{ common_pkgs }}" # Uses the variable list from group_vars/all.yml
     state: present
   tags: [common, packages, apt]
 

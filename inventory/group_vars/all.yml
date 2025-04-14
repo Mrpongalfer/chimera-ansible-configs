@@ -1,65 +1,16 @@
-# /opt/architect_configs/group_vars/all.yml
 ---
-# Variables applicable to all hosts
-
-# System settings
-system_timezone: "America/Denver"
-
-# User management
-admin_users:
-  - username: aiseed
-    shell: /bin/bash
-  - username: pong
-    shell: /bin/bash
-
-# --- Package Management --- (Simplified Definition)
-baseline_system_packages:
-  - vim
-  - tmux
-  - curl
-  - wget
-  - htop
-  - ncdu
-  - tree
-  - unzip
-  - net-tools
-  - dnsutils
-  - apt-transport-https
-  - ca-certificates
-  - gnupg
-  - python3-pip
-  - python3-venv
-
-# --- Variables for Security Role ---
-security_ssh_port: 22
-security_fail2ban_enabled: true
-fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Review subnet if needed
-
-# --- Variables for Docker Role ---
-docker_users_to_group:
-  - aiseed
-  - pong
-
-# --- Variables for Promtail Role ---
-loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
-
-# --- Variables potentially used by Security Role UFW tasks ---
-monitoring_allowed_sources: '192.168.0.0/24' # Review subnet if needed
-
-
-# Defines packages to be installed by the 'common' role on all hosts
-common_packages_to_install:
-  - build-essential # Common development tools (gcc, make, etc.)
-  - python3-dev # Headers for compiling Python extensions
+# Simplified for debugging variable loading
+common_pkgs:
+  - build-essential
+  - python3-dev
   - curl
   - wget
   - git
   - vim
   - tmux
   - htop
-  - net-tools # ifconfig, netstat, etc.
-  - dnsutils # dig, nslookup
+  - net-tools
+  - dnsutils
   - unzip
-  - ca-certificates # Should be present, but ensure
-  - gnupg # Needed for managing GPG keys
-  # - Add other truly common packages needed on ALL hosts here
+  - ca-certificates
+  - gnupg
