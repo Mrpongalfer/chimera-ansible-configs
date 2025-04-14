@@ -33,24 +33,44 @@
   tags: [promtail, packages]
   notify: Restart promtail # Notify handler if installed/updated
 
-- name: Ensure Promtail config directory exists
+# --- User/Group and Directory Setup ---
+- name: Ensure promtail group exists
+  ansible.builtin.group:
+    name: promtail
+    state: present
+    system: yes # Create as a system group
+  tags: [promtail, users, permissions, config]
+
+- name: Ensure promtail user exists
+  ansible.builtin.user:
+    name: promtail
+    group: promtail
+    shell: /usr/sbin/nologin # No interactive login needed
+    system: yes # Create as a system user
+    state: present
+    home: /var/lib/promtail # Set home dir
+    create_home: no # Directory created by file module below
+  tags: [promtail, users, permissions, config]
+
+- name: Ensure Promtail config directory exists (/etc/promtail)
   ansible.builtin.file:
     path: /etc/promtail
     state: directory
     owner: root
-    group: root # Or promtail? Let's assume root owns config dir for now
-    mode: '0755'
+    group: promtail # Group ownership for config readability by service
+    mode: '0750' # Restrict access
   tags: [promtail, config]
 
-- name: Ensure Promtail lib directory exists for positions file
+- name: Ensure Promtail lib directory exists for positions file (/var/lib/promtail)
   ansible.builtin.file:
     path: /var/lib/promtail # Standard data directory
     state: directory
-    owner: promtail # Assume promtail user/group created by package
-    group: promtail
-    mode: '0755'
+    owner: promtail # Ensure correct owner
+    group: promtail # Ensure correct group
+    mode: '0750' # Restrict access
   tags: [promtail, config, permissions]
 
+# --- Configuration Deployment ---
 - name: Deploy Promtail configuration from template
   ansible.builtin.template:
     src: promtail-config.yml.j2 # Template uses /var/lib/promtail/positions.yaml now
