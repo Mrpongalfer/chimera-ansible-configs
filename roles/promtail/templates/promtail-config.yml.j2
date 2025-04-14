@@ -6,7 +6,7 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: /tmp/positions.yaml # Or /var/lib/promtail/positions.yaml if preferred/perms allow
+  filename: /var/lib/promtail/positions.yaml # Or /var/lib/promtail/positions.yaml if preferred/perms allow
 
 clients:
   - url: {{ loki_server_url | default('http://127.0.0.1:3100/loki/api/v1/push') }}

@@ -6,7 +6,7 @@
   ansible.builtin.apt:
     name:
       - apt-transport-https
-      - software-properties-common # Provides add-apt-repository potentially
+      - software-properties-common
       - wget
     state: present
   tags: [promtail, packages, repo]
@@ -38,16 +38,25 @@
     path: /etc/promtail
     state: directory
     owner: root
-    group: root # Promtail package usually creates 'promtail' user/group - adjust if needed
+    group: root # Or promtail? Let's assume root owns config dir for now
     mode: '0755'
   tags: [promtail, config]
 
+- name: Ensure Promtail lib directory exists for positions file
+  ansible.builtin.file:
+    path: /var/lib/promtail # Standard data directory
+    state: directory
+    owner: promtail # Assume promtail user/group created by package
+    group: promtail
+    mode: '0755'
+  tags: [promtail, config, permissions]
+
 - name: Deploy Promtail configuration from template
   ansible.builtin.template:
-    src: promtail-config.yml.j2 # Template file in roles/promtail/templates/
+    src: promtail-config.yml.j2 # Template uses /var/lib/promtail/positions.yaml now
     dest: /etc/promtail/config.yml
     owner: root
-    group: root # Or 'promtail' group? Needs verification after package install
+    group: promtail # Allow promtail group to read config
     mode: '0640' # Restrict read access
     validate: '/usr/bin/promtail -config.file=%s -print-config-stderr' # Validate config syntax
   notify: Restart promtail # Notify handler if config changes
