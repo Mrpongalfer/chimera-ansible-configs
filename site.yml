@@ -4,13 +4,15 @@
   hosts: all # Targets both [server] and [clients] groups
   become: yes
   gather_facts: yes # Gather facts once for all hosts here
-  # Define variables directly here as workaround for group_vars/all.yml issue
+  vars_files: # <<< ADDED THIS SECTION
+    - ../inventory/group_vars/all.yml # <<< Path relative to this playbook (site.yml)
+  # Define variables directly here as workaround for group_vars/all.yml issue - NOTE: Keeping existing vars block
   vars:
     system_timezone: "America/Denver"
     admin_users:
       - { username: aiseed, shell: /bin/bash }
       - { username: pong, shell: /bin/bash }
-    baseline_system_packages:
+    baseline_system_packages: # Note: common_packages_to_install should come from all.yml now
       - vim
       - tmux
       - curl
@@ -73,8 +75,8 @@
   roles:
     - prometheus # Prometheus role ONLY here
     - loki
-    # - loki # Add Loki role here later
-    # - grafana # Add Grafana role here later
+    # - loki # Add Loki role here later - This was commented out in user provided file
+    # - grafana # Add Grafana role here later - This was commented out
 
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
@@ -84,5 +86,4 @@
   roles:
     # Add client-specific roles here later
     # - role: some_desktop_app # Example
-    - prompt_debug # Keeping placeholder for now
-
+    - prompt_debug # Keeping placeholder from user provided file
