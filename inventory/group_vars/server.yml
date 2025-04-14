@@ -1,5 +1,4 @@
-# Corrected server.yml - Assuming simple structure
-# If original had more vars, they need to be added back here.
+# Corrected server.yml - Version 1.1
 prometheus_port_override: 9091 # Keeping only one instance
 server_ufw_allow_rules:
   - comment: Allow SSH from Client 'pong@pop-os'
@@ -12,4 +11,4 @@ server_ufw_allow_rules:
     proto: tcp
     rule: allow
     src: 127.0.0.1
-# Add any OTHER variables that were in the original server.yml below
+# Add other original server.yml variables below this line if they existed
