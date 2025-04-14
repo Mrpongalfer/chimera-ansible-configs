@@ -1,4 +1,4 @@
-# Corrected server.yml - Version 1.3 (Automated)
+# Corrected server.yml - Version 1.4 (Automated)
 prometheus_port_override: 9091 # Keeping only one instance
 server_ufw_allow_rules:
   - comment: Allow SSH from Client 'pong@pop-os'

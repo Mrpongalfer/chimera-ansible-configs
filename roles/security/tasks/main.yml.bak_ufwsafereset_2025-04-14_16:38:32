@@ -1,0 +1,105 @@
+# /opt/architect_configs/roles/security/tasks/main.yml
+---
+# Security hardening tasks using templates and refined rules
+
+# --- SSHD Hardening (using Template) ---
+- name: Deploy hardened sshd_config from template
+  ansible.builtin.template:
+    src: sshd_config.j2 # Template file in roles/security/templates/
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+    validate: 'sshd -t -f %s' # Validate syntax before applying
+  notify: Restart sshd # Trigger handler if template changes result in file change
+  tags: [security, sshd]
+
+# --- UFW Management ---
+- name: Ensure ufw package is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  tags: [security, firewall, ufw]
+
+# Reset UFW before defining rules to ensure clean state managed by Ansible
+- name: Reset UFW to installation defaults (CAUTION!)
+  community.general.ufw:
+    state: reset
+  tags: [security, firewall, ufw]
+
+- name: Set UFW logging state
+  community.general.ufw:
+    logging: 'on' # Options: off, low, medium, high, full
+  tags: [security, firewall, ufw]
+
+- name: Set UFW default policies (Deny Incoming)
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+    - { direction: routed, policy: deny }
+  tags: [security, firewall, ufw]
+  notify: Reload ufw # Trigger handler
+
+# -- Apply Specific UFW Allow Rules based on Group --
+- name: Apply Server-specific UFW allow rules
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    src: "{{ item.src | default(omit) }}" # Use 'omit' if src not defined in item
+    dest: "{{ item.dest | default(omit) }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ server_ufw_allow_rules | default([]) }}" # Loop through list in group_vars/server.yml
+  when: "'server' in group_names" # Only run on hosts in 'server' group
+  tags: [security, firewall, ufw]
+  notify: Reload ufw
+
+- name: Apply Client-specific UFW allow rules
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    src: "{{ item.src | default(omit) }}"
+    dest: "{{ item.dest | default(omit) }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ client_ufw_allow_rules | default([]) }}" # Loop through list in group_vars/clients.yml
+  when: "'clients' in group_names" # Only run on hosts in 'clients' group
+  tags: [security, firewall, ufw]
+  notify: Reload ufw
+
+- name: Ensure ufw is enabled and running
+  community.general.ufw:
+    state: enabled
+  tags: [security, firewall, ufw]
+
+
+# --- Fail2Ban ---
+- name: Ensure fail2ban package is installed
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+  when: security_fail2ban_enabled | default(false) # Use variable from group_vars/all.yml
+  tags: [security, fail2ban]
+
+- name: Deploy fail2ban jail.local configuration from template
+  ansible.builtin.template:
+    src: jail.local.j2 # Template file in roles/security/templates/
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+  when: security_fail2ban_enabled | default(false)
+  notify: Restart fail2ban # Handler needed
+  tags: [security, fail2ban]
+
+- name: Ensure fail2ban service is enabled and running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: yes
+  when: security_fail2ban_enabled | default(false)
+  tags: [security, fail2ban]
+

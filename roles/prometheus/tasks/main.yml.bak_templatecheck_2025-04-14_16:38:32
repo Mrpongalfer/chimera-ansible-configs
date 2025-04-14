@@ -1,0 +1,64 @@
+# /opt/architect_configs/roles/prometheus/tasks/main.yml
+---
+# Tasks to deploy Prometheus via Docker Compose
+
+- name: Set Prometheus configuration facts
+  ansible.builtin.set_fact:
+    prometheus_base_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}"
+    prometheus_compose_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}"
+    prometheus_config_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}/config"
+    prometheus_data_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}/data"
+    prometheus_port: "{{ prometheus_port_override | default(9090) }}"
+    prometheus_bind_ip: "{{ prometheus_bind_ip_override | default('127.0.0.1') }}" # Default: Listen only on localhost
+  tags: [prometheus, config]
+
+- name: Ensure Prometheus directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root # Consider 'aiseed' or dedicated user if preferred
+    group: root # Consider 'aiseed' or dedicated user group
+    mode: '0755'
+  loop:
+    - "{{ prometheus_compose_dir }}"
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+  tags: [prometheus, config]
+
+- name: Deploy Prometheus configuration file from template (prometheus.yml)
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    owner: root # Should be readable by user inside container (often root or 'nobody')
+    group: root
+    mode: '0644'
+  notify: Restart prometheus container
+  tags: [prometheus, config]
+
+- name: Ensure Docker Compose V2 is available
+  ansible.builtin.package:
+    name: docker-compose-plugin
+    state: present
+  tags: [prometheus, docker, packages]
+
+# Step 1: Deploy the docker-compose.yml file from template
+- name: Deploy Prometheus docker-compose.yml file from template
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ prometheus_compose_dir }}/docker-compose.yml" # Deploy file to project_src dir
+    owner: root # User running ansible-playbook needs write access here (aiseed likely needs sudo implicitly via become)
+    group: root
+    mode: '0644'
+  notify: Restart prometheus container
+  tags: [prometheus, config, docker]
+
+# Step 2: Use docker_compose_v2 module pointing to the directory
+- name: Deploy Prometheus Docker Compose stack using rendered file
+  community.docker.docker_compose_v2:
+    project_src: "{{ prometheus_compose_dir }}" # Directory containing docker-compose.yml
+    # Module implicitly uses docker-compose.yml in project_src
+    state: present # Ensures containers are running
+    pull: always # Pull latest image on change/start
+  notify: Restart prometheus container # Also notify if compose task changes state
+  tags: [prometheus, docker, deploy]
+

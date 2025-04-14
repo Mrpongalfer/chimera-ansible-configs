@@ -1,64 +1,68 @@
-# /opt/architect_configs/roles/prometheus/tasks/main.yml
 ---
-# Tasks to deploy Prometheus via Docker Compose
-
+# Tasks for Prometheus role - v1.1 Added Template Check
 - name: Set Prometheus configuration facts
   ansible.builtin.set_fact:
-    prometheus_base_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}"
-    prometheus_compose_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}"
-    prometheus_config_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}/config"
-    prometheus_data_dir: "{{ prometheus_base_dir_override | default('/opt/docker/prometheus') }}/data"
+    prometheus_config_dir: "/opt/docker/prometheus/config"
+    prometheus_data_dir: "/opt/docker/prometheus/data"
+    prometheus_compose_dir: "/opt/docker/prometheus"
     prometheus_port: "{{ prometheus_port_override | default(9090) }}"
-    prometheus_bind_ip: "{{ prometheus_bind_ip_override | default('127.0.0.1') }}" # Default: Listen only on localhost
-  tags: [prometheus, config]
+    # Add other facts as needed
 
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: root # Consider 'aiseed' or dedicated user if preferred
-    group: root # Consider 'aiseed' or dedicated user group
+    owner: "{{ docker_run_user | default('root') }}" # Needs variable for user running docker/compose
+    group: "{{ docker_run_group | default('root') }}"
     mode: '0755'
   loop:
     - "{{ prometheus_compose_dir }}"
     - "{{ prometheus_config_dir }}"
     - "{{ prometheus_data_dir }}"
-  tags: [prometheus, config]
 
 - name: Deploy Prometheus configuration file from template (prometheus.yml)
   ansible.builtin.template:
-    src: prometheus.yml.j2
+    src: prometheus.yml.j2 # Assumes this template exists
     dest: "{{ prometheus_config_dir }}/prometheus.yml"
-    owner: root # Should be readable by user inside container (often root or 'nobody')
-    group: root
+    owner: "{{ docker_run_user | default('root') }}"
+    group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
-  notify: Restart prometheus container
-  tags: [prometheus, config]
+  notify: Restart Prometheus container # Assumes handler exists
 
 - name: Ensure Docker Compose V2 is available
-  ansible.builtin.package:
-    name: docker-compose-plugin
-    state: present
-  tags: [prometheus, docker, packages]
+  ansible.builtin.command: docker compose version
+  register: compose_version_check
+  changed_when: false
+  failed_when: compose_version_check.rc != 0
 
-# Step 1: Deploy the docker-compose.yml file from template
+# --- BEGIN TEMPLATE CHECK ---
+- name: Check if Prometheus docker-compose template exists
+  ansible.builtin.stat:
+    path: "{{ PROMETHEUS_TEMPLATE_PATH }}" # Uses variable defined below for clarity
+  vars:
+    PROMETHEUS_TEMPLATE_PATH: "templates/docker-compose.yml.j2" # Path relative to ROLE root
+  register: prometheus_template_stat
+
+- name: Fail if Prometheus docker-compose template is missing
+  ansible.builtin.fail:
+    msg: |
+      Required Prometheus template file not found!
+      Path expected relative to role: '{{ PROMETHEUS_TEMPLATE_PATH }}'
+      (Full path expected: '{{ role_path }}/{{ PROMETHEUS_TEMPLATE_PATH }}')
+      Please create this file with the correct docker-compose content in the
+      '{{ role_path }}/templates/' directory within the Git repository.
+  when: not prometheus_template_stat.stat.exists
+# --- END TEMPLATE CHECK ---
+
 - name: Deploy Prometheus docker-compose.yml file from template
   ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: "{{ prometheus_compose_dir }}/docker-compose.yml" # Deploy file to project_src dir
-    owner: root # User running ansible-playbook needs write access here (aiseed likely needs sudo implicitly via become)
-    group: root
+    src: docker-compose.yml.j2 # This path is now verified to exist by the task above
+    dest: "{{ prometheus_compose_dir }}/docker-compose.yml"
+    owner: "{{ docker_run_user | default('root') }}"
+    group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
-  notify: Restart prometheus container
-  tags: [prometheus, config, docker]
+  notify: Restart Prometheus container
 
-# Step 2: Use docker_compose_v2 module pointing to the directory
-- name: Deploy Prometheus Docker Compose stack using rendered file
-  community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}" # Directory containing docker-compose.yml
-    # Module implicitly uses docker-compose.yml in project_src
-    state: present # Ensures containers are running
-    pull: always # Pull latest image on change/start
-  notify: Restart prometheus container # Also notify if compose task changes state
-  tags: [prometheus, docker, deploy]
+# Add tasks to manage container (docker compose up -d) etc.
+# ...
 
