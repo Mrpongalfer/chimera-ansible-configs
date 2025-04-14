@@ -1,0 +1,33 @@
+# /etc/prometheus/prometheus.yml - Ansible Managed
+# Basic Prometheus config scraping node_exporter on server & client
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    # Scrape Prometheus itself using the configured port
+    static_configs:
+      # Target localhost using the variable potentially overridden in group_vars/server.yml
+      # Defaulting to 9091 here for clarity, matching our override.
+      - targets: [ "localhost:{{ prometheus_port_override | default(9091) }}" ]
+
+  - job_name: 'node_exporter'
+    # Scrape node_exporter on server and clients
+    static_configs:
+      - targets: # CORRECTED: Targets list directly under the static_configs item
+          - 'localhost:9100' # Server itself
+          # Loop through clients defined in inventory
+          {% for host in groups['clients'] %}
+          # Use ansible_host if defined, otherwise use inventory hostname
+          - '{{ hostvars[host].ansible_host | default(host) }}:9100'
+          {% endfor %}
+    relabel_configs: # CORRECTED: Indentation aligned with static_configs
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):\d+'
+        replacement: '${1}'
+
+# Add scrape configs for other services (e.g., cadvisor) later
+

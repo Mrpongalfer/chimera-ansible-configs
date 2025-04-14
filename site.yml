@@ -3,21 +3,13 @@
 - name: Apply common configuration to all hosts
   hosts: all # Targets both [server] and [clients] groups
   become: yes
-  gather_facts: yes # Gather facts for use in roles/templates
+  gather_facts: yes # Gather facts once for all hosts here
+  # Define variables directly here as workaround for group_vars/all.yml issue
   vars:
-    # --- Consolidated Variables (Previously in group_vars/all.yml) ---
-
-    # System settings
     system_timezone: "America/Denver"
-
-    # User management
     admin_users:
-      - username: aiseed
-        shell: /bin/bash
-      - username: pong
-        shell: /bin/bash
-
-    # Package Management (Using renamed variable)
+      - { username: aiseed, shell: /bin/bash }
+      - { username: pong, shell: /bin/bash }
     baseline_system_packages:
       - vim
       - tmux
@@ -34,63 +26,62 @@
       - gnupg
       - python3-pip
       - python3-venv
-
-    # Security Role Variables
     security_ssh_port: 22
-    security_fail2ban_enabled: true
-    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Review subnet if needed
-
-    # Docker Role Variables
+    security_fail2ban_enabled: true # Still skipped - investigate later
+    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
     docker_users_to_group:
       - aiseed
       - pong
-
-    # Promtail Role Variables
     loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
-
-    # Security Role UFW Variable (used by server group context)
-    monitoring_allowed_sources: '192.168.0.0/24' # Review subnet if needed
-
+    monitoring_allowed_sources: '192.168.0.0/24'
   roles:
-    - common # Apply tasks from roles/common/tasks/main.yml
+    - common
 
 - name: Apply security baseline to all hosts
   hosts: all
   become: yes
-  # Note: security role tasks will use variables defined in the first play above
-  # because play vars have high precedence.
+  gather_facts: no # Facts gathered already in first play
   roles:
-    - security # Apply tasks from roles/security/tasks/main.yml
+    - security
 
-- name: Configure Docker on all hosts # Added Docker role apply here
+- name: Configure Docker on all hosts
   hosts: all
   become: yes
+  gather_facts: no
   roles:
     - docker
 
-- name: Configure Node Exporter on all hosts # Added node_exporter role apply here
+- name: Configure Node Exporter on all hosts
   hosts: all
   become: yes
+  gather_facts: no
   roles:
     - node_exporter
 
-- name: Configure Promtail on all hosts # Added promtail role apply here
+- name: Configure Promtail on all hosts
   hosts: all
   become: yes
+  gather_facts: no
   roles:
     - promtail
 
+# --- Server-Specific Configuration ---
 - name: Configure server-specific settings
-  hosts: server # Targets only the [server] group (localhost)
+  hosts: server # TARGETS ONLY SERVER GROUP
   become: yes
+  gather_facts: no
   roles:
-    # Add server-specific roles here later (e.g., nginx, grafana, loki, prometheus)
-    - prompt_debug # Placeholder, replace with actual server roles
+    - prometheus # Prometheus role ONLY here
+    # - loki # Add Loki role here later
+    # - grafana # Add Grafana role here later
 
+# --- Client-Specific Configuration ---
 - name: Configure client-specific settings
-  hosts: clients # Targets only the [clients] group (192.168.0.96)
+  hosts: clients # TARGETS ONLY CLIENT GROUP
   become: yes
+  gather_facts: no
   roles:
-    # Add client-specific roles here later (e.g., desktop_tools, development_env)
-    - prompt_debug # Placeholder, replace with actual client roles
+    # Add client-specific roles here later
+    # - role: some_desktop_app # Example
+    - prompt_debug # Keeping placeholder for now
 
