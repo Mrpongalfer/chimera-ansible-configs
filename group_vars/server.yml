@@ -10,3 +10,7 @@ server_ufw_allow_rules:
   # Other ports (Web, Monitoring, Docker) ARE NOT OPENED EXTERNALLY BY DEFAULT.
   # We will add rules here specifically when we configure those services.
   # Example for later: - { rule: allow, port: '443', proto: tcp, src: 'any', comment: "Allow HTTPS for Nginx" }
+
+# --- Prometheus Role Overrides ---
+prometheus_port_override: 9091 # Change Prometheus port
+# prometheus_bind_ip_override: "0.0.0.0" # Optional: Uncomment to bind to all interfaces (requires UFW rule update)
