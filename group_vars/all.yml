@@ -60,3 +60,8 @@ fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Example: Ignore localhost 
 # ssh_allow_users:
 #   - aiseed
 #   - pong
+
+# --- Variables for Docker Role ---
+docker_users_to_group: # List of users to add to the docker group
+  - aiseed
+  - pong

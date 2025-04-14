@@ -12,6 +12,7 @@
   become: yes
   roles:
     - security # Apply tasks from roles/security/tasks/main.yml
+    - docker
 
 - name: Configure server-specific settings
   hosts: server # Targets only the [server] group (localhost)
