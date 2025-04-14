@@ -12,6 +12,8 @@
   become: yes
   roles:
     - security # Apply tasks from roles/security/tasks/main.yml
+    - node_exporter
+    - promtail
     - docker
 
 - name: Configure server-specific settings
