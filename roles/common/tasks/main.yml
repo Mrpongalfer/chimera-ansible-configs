@@ -7,32 +7,38 @@
     update_cache: yes
     cache_valid_time: 3600 # Only update if cache is > 1 hour old
   changed_when: false # Prevent this task alone from reporting 'changed' status
-  tags: [common, packages]
+  tags: [common, packages, apt]
 
 - name: Install common packages defined in group_vars/all.yml
   ansible.builtin.apt:
-    name: "{{ common_packages_to_install }}" # Uses the variable list
+    name: "{{ common_packages_to_install }}" # Uses variable list from group_vars/all.yml
     state: present
-  tags: [common, packages]
+  tags: [common, packages, apt]
 
 - name: Set system timezone
   community.general.timezone:
-    name: "{{ system_timezone }}" # Uses the variable
-  tags: [common, system]
+    name: "{{ system_timezone }}" # Uses variable from group_vars/all.yml
+  tags: [common, system, timezone]
 
-# This is a basic user check; more robust management (groups, keys) needed for production
-- name: Ensure admin users exist with correct shell
+- name: Ensure systemd-timesyncd is active and enabled for time sync
+  ansible.builtin.service:
+    name: systemd-timesyncd
+    state: started
+    enabled: yes
+  tags: [common, system, ntp]
+
+# Basic user check - ensures specified users exist with correct shell
+# Note: Does not manage passwords or detailed group memberships here.
+- name: Ensure admin users exist
   ansible.builtin.user:
     name: "{{ item.username }}"
     shell: "{{ item.shell }}"
     state: present
-    # append: yes # Use if adding users to supplementary groups
-    # groups: sudo # Example: ensure they are in sudo group
-  loop: "{{ admin_users }}" # Loop through the list defined in group_vars/all.yml
+  loop: "{{ admin_users }}" # Loop through list defined in group_vars/all.yml
   tags: [common, users]
 
-# Add other common tasks here:
-# - Configure NTP client (e.g., systemd-timesyncd or chrony)
-# - Apply basic sysctl kernel parameters
-# - Manage MOTD
+# Add other common tasks below as needed:
+# - Basic sysctl tuning (e.g., using ansible.posix.sysctl)
+# - Managing MOTD (e.g., using ansible.builtin.template)
+# - Ensuring specific directories exist
 
