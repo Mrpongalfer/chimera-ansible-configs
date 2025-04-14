@@ -9,6 +9,12 @@
 
 - name: Reload ufw
   ansible.builtin.command:
+    # Using 'ufw reload' might be sufficient and less disruptive than restart
     cmd: ufw reload
   listen: "Reload ufw" # Custom listener name used in notify
 
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+  listen: "Restart fail2ban" # Custom listener name used in notify
