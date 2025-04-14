@@ -1,0 +1,112 @@
+---
+# Tasks for security role - v1.6 Meticulous YAML Syntax Fix
+- name: Deploy hardened sshd_config from template
+  ansible.builtin.template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Restart sshd
+  tags: [security, ssh]
+
+- name: Ensure ufw package is installed
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  tags: [security, ufw]
+
+# --- BEGIN FORCEFUL UFW RESET (Corrected YAML Syntax v3) ---
+- name: Remove existing UFW user rule backups to prevent reset error
+  ansible.builtin.shell: rm -f /etc/ufw/user.rules.* /etc/ufw/user6.rules.* /var/lib/ufw/user.rules.* /var/lib/ufw/user6.rules.*
+  # Parameters indented exactly 2 spaces:
+  warn: false
+  changed_when: false
+  become: true
+  tags: [security, ufw]
+
+- name: Reset UFW to installation defaults (Forceful)
+  ansible.builtin.command: ufw --force reset
+  # Parameters indented exactly 2 spaces:
+  changed_when: true
+  notify: Reload ufw
+  tags: [security, ufw]
+# --- END FORCEFUL UFW RESET ---
+
+- name: Set UFW logging state
+  community.general.ufw:
+    logging: 'on'
+  notify: Reload ufw
+  tags: [security, ufw]
+
+- name: Set UFW default policies (Deny Incoming)
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+    - { direction: routed, policy: deny }
+  notify: Reload ufw
+  tags: [security, ufw]
+
+- name: Apply Server-specific UFW allow rules
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    direction: "{{ item.direction | default('in') }}"
+    from_ip: "{{ item.src | default('any') }}"
+    to_ip: "{{ item.dest | default('any') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default('any') }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ server_ufw_allow_rules | default([]) }}"
+  when: inventory_hostname in groups['server']
+  notify: Reload ufw
+  tags: [security, ufw]
+
+- name: Apply Client-specific UFW allow rules
+  community.general.ufw:
+    rule: "{{ item.rule | default('allow') }}"
+    direction: "{{ item.direction | default('in') }}"
+    from_ip: "{{ item.src | default('any') }}"
+    to_ip: "{{ item.dest | default('any') }}"
+    port: "{{ item.port | default(omit) }}"
+    proto: "{{ item.proto | default('any') }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ client_ufw_allow_rules | default([]) }}" # Define this var for clients
+  when: inventory_hostname in groups['clients']
+  notify: Reload ufw
+  tags: [security, ufw]
+
+- name: Ensure ufw is enabled and running
+  community.general.ufw:
+    state: enabled
+  tags: [security, ufw]
+
+# --- Fail2ban Section ---
+- name: Ensure fail2ban package is installed
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+  when: security_fail2ban_enabled | default(false)
+  tags: [security, fail2ban]
+
+- name: Deploy fail2ban jail.local configuration from template
+  ansible.builtin.template:
+    src: jail.local.j2 # Assumes template exists
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
+  when: security_fail2ban_enabled | default(false)
+  notify: Restart fail2ban
+  tags: [security, fail2ban]
+
+- name: Ensure fail2ban service is enabled and running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: yes
+  when: security_fail2ban_enabled | default(false)
+  tags: [security, fail2ban]
+
