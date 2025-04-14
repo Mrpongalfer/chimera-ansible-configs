@@ -12,7 +12,7 @@ admin_users:
   - username: pong
     shell: /bin/bash
 
-# Package management
+# --- Package Management ---
 common_packages_to_install:
   - vim
   - tmux
@@ -22,48 +22,29 @@ common_packages_to_install:
   - ncdu
   - tree
   - unzip
-  - net-tools
-  - dnsutils
-  - apt-transport-https
-  - ca-certificates
-  - gnupg
-  - python3-pip
-  - python3-venv
-  - chrony # Ensure chrony is listed here now
+  - net-tools            # Provides ifconfig, netstat etc.
+  - dnsutils             # Provides dig, nslookup
+  - apt-transport-https # Often needed for custom apt repos
+  - ca-certificates     # Ensure up-to-date certs
+  - gnupg                # Often needed for adding repo keys
+  - python3-pip          # Useful Python package installer
+  - python3-venv         # For creating Python virtual environments
+  # Note: chrony is installed via dedicated task in common role
 
 # --- Variables for Security Role ---
 security_ssh_port: 22
 security_fail2ban_enabled: true
-# Define ignoreip here, assuming local subnet is generally trusted for fail2ban
-# Review this subnet if your local network differs from 192.168.0.x
-fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
+fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Review subnet if needed
 
-# Variables for Docker Role
+# --- Variables for Docker Role ---
 docker_users_to_group:
   - aiseed
   - pong
 
-
 # --- Variables for Promtail Role ---
-# URL for the Loki server where Promtail will send logs
-# Pointing to the server itself where Loki will run (adjust if Loki is elsewhere)
 loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
 
-# --- Package Management --- (Re-added)
-common_packages_to_install:
-  - vim
-  - tmux
-  - curl
-  - wget
-  - htop
-  - ncdu
-  - tree
-  - unzip
-  - net-tools    # Provides ifconfig, netstat etc.
-  - dnsutils     # Provides dig, nslookup
-  - apt-transport-https # Often needed for custom apt repos
-  - ca-certificates     # Ensure up-to-date certs
-  - gnupg            # Often needed for adding repo keys
-  - python3-pip      # Useful Python package installer
-  - python3-venv     # For creating Python virtual environments
-  # chrony is handled by its own task in common role now, removed from list
+# --- Variables potentially used by Security Role UFW tasks ---
+# (Specific rules defined in server.yml/clients.yml take precedence)
+monitoring_allowed_sources: '192.168.0.0/24' # Review subnet if needed
+
