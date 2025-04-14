@@ -20,12 +20,19 @@
     name: "{{ system_timezone }}" # Uses variable from group_vars/all.yml
   tags: [common, system, timezone]
 
-- name: Ensure systemd-timesyncd is active and enabled for time sync
-  ansible.builtin.service:
-    name: systemd-timesyncd
-    state: started
-    enabled: yes
-  tags: [common, system, ntp]
+    # --- NTP Configuration (using Chrony) ---
+    - name: Ensure chrony NTP client is installed
+      ansible.builtin.apt:
+        name: chrony
+        state: present
+      tags: [common, system, ntp]
+
+    - name: Ensure chrony service is enabled and running
+      ansible.builtin.service:
+        name: chrony # Service name might be chronyd on some systems
+        state: started
+        enabled: yes
+      tags: [common, system, ntp]
 
 # Basic user check - ensures specified users exist with correct shell
 # Note: Does not manage passwords or detailed group memberships here.

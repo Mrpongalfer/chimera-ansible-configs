@@ -56,7 +56,7 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 
 # Optional: Limit users/groups allowed to connect
-# AllowUsers {{ ssh_allow_users | join(' ') }} # Requires ssh_allow_users list variable defined elsewhere
+# AllowUsers {{ ssh_allow_users | default([]) | join(' ') }} # Requires ssh_allow_users list variable defined elsewhere
 
 # Optional: Stronger Ciphers/MACs/Kex (Modern defaults are generally good)
 # Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
