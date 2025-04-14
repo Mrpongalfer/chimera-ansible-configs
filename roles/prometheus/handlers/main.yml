@@ -1,14 +1,12 @@
 # /opt/architect_configs/roles/prometheus/handlers/main.yml
 ---
 # Handlers for the prometheus role
-
 - name: Restart prometheus container
-  # Use docker_compose_v2 module again. 'state: present' re-evaluates and restarts if needed.
-  # Include variables needed to locate the compose file/project directory.
+  # Re-running state: present is usually enough to restart/recreate if needed based on compose file changes
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_base_dir | default('/opt/docker/prometheus') }}"
-    state: present # Ensures containers running based on definition, restarts if needed
-    pull: always # Ensures image is up-to-date on restart potentially
-    restarted: yes # Explicitly force restart of services defined in compose
+    project_src: "{{ prometheus_base_dir | default('/opt/docker/prometheus') }}" # Use var to find compose file
+    state: present # Ensures containers running based on definition
+    pull: always # Ensures image is up-to-date on handler run
+    # restarted: yes # REMOVED - Unsupported parameter
   listen: "Restart prometheus container" # Must match notify: value in tasks
 
