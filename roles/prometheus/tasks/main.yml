@@ -1,27 +1,31 @@
 ---
-# Tasks for Prometheus role - v1.7 Relying on Play Vars
+# Tasks for Prometheus role - v1.7 Added Volume Permissions
 # Assumes ALL prometheus_* vars are defined directly in the calling play's 'vars:' section
 
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ docker_run_user | default('root') }}"
-    group: "{{ docker_run_group | default('root') }}"
+    # Set owner/group based on docker_run_user/group for initial creation if needed by compose?
+    # Let's ensure root owns initially, then fix data dir below.
+    owner: root
+    group: root
     mode: '0755'
   loop:
     - "{{ prometheus_compose_dir }}"
     - "{{ prometheus_config_dir }}"
     - "{{ prometheus_data_dir }}"
-    - "{{ role_path }}/templates" # Ensure templates dir exists relative to role
+    - "{{ role_path }}/templates"
+  become: true
 
 - name: Deploy Prometheus configuration file (prometheus.yml)
   ansible.builtin.template:
     src: "{{ prometheus_config_template }}"
     dest: "{{ prometheus_config_file_path }}"
-    owner: "{{ docker_run_user | default('root') }}"
-    group: "{{ docker_run_group | default('root') }}"
+    owner: root # Config readable by root/container user
+    group: root
     mode: '0644'
+  become: true
   notify: Restart Prometheus container
 
 - name: Ensure Docker Compose V2 is available
@@ -29,19 +33,33 @@
   register: compose_version_check
   changed_when: false
   failed_when: compose_version_check.rc != 0
+  become: true # May need sudo if docker requires it
 
 - name: Deploy Prometheus docker-compose.yml file from template
   ansible.builtin.template:
     src: "{{ prometheus_template_name }}"
     dest: "{{ prometheus_compose_file_path }}"
-    owner: "{{ docker_run_user | default('root') }}"
-    group: "{{ docker_run_group | default('root') }}"
+    owner: root # Root can manage compose file
+    group: root
     mode: '0644'
+  become: true
   notify: Start Prometheus container
+
+# --- BEGIN VOLUME PERMISSION FIX ---
+- name: Ensure Prometheus data directory has correct permissions for 'nobody' user
+  ansible.builtin.file:
+    path: "{{ prometheus_data_dir }}"
+    state: directory
+    owner: 65534 # UID for nobody (common default)
+    group: 65534 # GID for nogroup (common default)
+    mode: '0775' # Writable by owner/group
+  become: true
+# --- END VOLUME PERMISSION FIX ---
 
 - name: Ensure Prometheus container is running via Docker Compose
   community.docker.docker_compose_v2:
     project_src: "{{ prometheus_compose_dir }}"
     state: present
     pull: missing
+  become: true # Docker compose often needs privileges
   register: compose_result
