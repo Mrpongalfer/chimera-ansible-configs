@@ -42,3 +42,9 @@ large_files/
 .idea/
 *.swp
 molecule/
+
+# Logs
+*.log
+
+# Python Requirements file (often managed separately)
+# requirements*.txt
