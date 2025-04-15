@@ -1,5 +1,5 @@
 ---
-# Tasks for security role - v2.0 Idempotent UFW Reset
+# Tasks for security role - v1.9 Removed Forceful UFW Reset
 - name: Deploy hardened sshd_config from template
   ansible.builtin.template:
     src: sshd_config.j2
@@ -16,32 +16,12 @@
     state: present
   tags: [security, ufw]
 
-# --- BEGIN IDEMPOTENT UFW RESET APPROACH ---
-# This block ensures UFW is reset ONLY if it's currently active and managed
-# Avoids errors about backup files and unnecessary resets
-
-- name: Check current UFW status
-  ansible.builtin.command: ufw status
-  register: ufw_status_check
-  changed_when: false
-  failed_when: false # Continue even if inactive
-  become: true
-  tags: [security, ufw]
-
-# Only attempt reset if UFW is currently active (prevents issues on first run)
-# Further checks could be added here if more complex state detection needed
-- name: Reset UFW to defaults if it is currently active
-  ansible.builtin.command: ufw --force reset
-  when: "'Status: active' in ufw_status_check.stdout"
-  changed_when: true # Reset always changes state conceptually
-  become: true
-  notify: Reload ufw
-  tags: [security, ufw]
-# --- END IDEMPOTENT UFW RESET APPROACH ---
+# --- Forceful UFW Reset Block Removed ---
+# The following tasks manage state directly using the ufw module
 
 - name: Set UFW logging state
   community.general.ufw:
-    logging: 'on'
+    logging: 'on' # Or 'low', 'medium', 'high' based on variable
   notify: Reload ufw
   tags: [security, ufw]
 
@@ -65,7 +45,7 @@
     port: "{{ item.port | default(omit) }}"
     proto: "{{ item.proto | default('any') }}"
     comment: "{{ item.comment | default(omit) }}"
-  loop: "{{ server_ufw_allow_rules | default([]) }}"
+  loop: "{{ server_ufw_allow_rules | default([]) }}" # Defined in inventory/group_vars/server.yml
   when: inventory_hostname in groups['server']
   notify: Reload ufw
   tags: [security, ufw]
@@ -79,7 +59,7 @@
     port: "{{ item.port | default(omit) }}"
     proto: "{{ item.proto | default('any') }}"
     comment: "{{ item.comment | default(omit) }}"
-  loop: "{{ client_ufw_allow_rules | default([]) }}"
+  loop: "{{ client_ufw_allow_rules | default([]) }}" # Define this var for clients
   when: inventory_hostname in groups['clients']
   notify: Reload ufw
   tags: [security, ufw]
@@ -90,7 +70,7 @@
   tags: [security, ufw]
 
 # --- Fail2ban Section ---
-# (Assuming Fail2ban setup remains the same)
+# (Assuming content from previous version or user's repo)
 - name: Ensure fail2ban package is installed
   ansible.builtin.apt:
     name: fail2ban
@@ -100,7 +80,7 @@
 
 - name: Deploy fail2ban jail.local configuration from template
   ansible.builtin.template:
-    src: jail.local.j2
+    src: jail.local.j2 # Assumes template exists
     dest: /etc/fail2ban/jail.local
     owner: root
     group: root
