@@ -1,0 +1,35 @@
+# Corrected server.yml - Version 1.7 (Final Prometheus Vars)
+# Removed duplicate prometheus_port_override, set to 9091
+prometheus_port_override: 9091 # Changed default port
+server_ufw_allow_rules:
+  - comment: Allow SSH from Client 'pong@pop-os'
+    port: '{{ security_ssh_port | default(22) }}'
+    proto: tcp
+    rule: allow
+    src: 192.168.0.96
+  - comment: Allow SSH from Localhost
+    port: '{{ security_ssh_port | default(22) }}'
+    proto: tcp
+    rule: allow
+    src: 127.0.0.1
+  - comment: Allow Prometheus from Client Subnet # ADD RULE FOR NEW PORT
+    port: '{{ prometheus_port_override | default(9091) }}'
+    proto: tcp
+    rule: allow
+    # Define monitoring_allowed_sources in group_vars/all or here if specific
+    src: '{{ monitoring_allowed_sources | default("192.168.0.0/24") }}'
+
+# --- Prometheus Role Variables (Defined Here for Handlers) ---
+prometheus_config_dir: "/opt/docker/prometheus/config"
+prometheus_data_dir: "/opt/docker/prometheus/data"
+prometheus_compose_dir: "/opt/docker/prometheus"
+docker_run_user: "aiseed" # User owning files/running compose on server - ADJUST IF NEEDED
+docker_run_group: "aiseed" # Group owning files on server - ADJUST IF NEEDED
+prometheus_template_name: "docker-compose.yml.j2"
+prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
+prometheus_config_template: "prometheus.yml.j2"
+prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
+node_exporter_port: 9100 # For scrape config example
+
+# Add any OTHER essential variables that were in the original server.yml below:
+
