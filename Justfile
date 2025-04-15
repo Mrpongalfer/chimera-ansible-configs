@@ -50,3 +50,7 @@ decrypt file:
 # Default task
 default: lint syntax_check
 
+
+# Run Goss infrastructure validation tests
+test_infra:
+    ansible-playbook -i {{inventory_file}} test_infra.yml {{vault_arg}} --ask-become-pass
