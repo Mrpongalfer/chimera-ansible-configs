@@ -1,0 +1,7 @@
+---
+collections:
+  - name: community.general
+    version: ">=9.1.0" # Example: Pin to a recent version
+  - name: community.docker
+    version: ">=3.4.0" # Example: Pin to a recent version
+  # Add other collections as your roles require them
