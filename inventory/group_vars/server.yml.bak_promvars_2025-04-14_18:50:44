@@ -1,0 +1,15 @@
+# Corrected server.yml - Version 1.6 (Automated w/ Check)
+prometheus_port_override: 9091 # Keeping only one instance
+server_ufw_allow_rules:
+  - comment: Allow SSH from Client 'pong@pop-os'
+    port: '{{ security_ssh_port | default(22) }}'
+    proto: tcp
+    rule: allow
+    src: 192.168.0.96
+  - comment: Allow SSH from Localhost
+    port: '{{ security_ssh_port | default(22) }}'
+    proto: tcp
+    rule: allow
+    src: 127.0.0.1
+# Add any OTHER essential variables from original server.yml below if they were overwritten:
+

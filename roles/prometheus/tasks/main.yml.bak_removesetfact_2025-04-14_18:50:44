@@ -1,0 +1,62 @@
+---
+# Tasks for Prometheus role - v1.4 Simplified Vars & Direct Template Use
+- name: Define Prometheus configuration variables using 'vars'
+  # Define variables directly at task level or ideally move to role vars/defaults or group_vars
+  vars:
+    prometheus_config_dir: "/opt/docker/prometheus/config"
+    prometheus_data_dir: "/opt/docker/prometheus/data"
+    prometheus_compose_dir: "/opt/docker/prometheus"
+    prometheus_port: "{{ prometheus_port_override | default(9090) }}" # Still allow override
+    docker_run_user: "aiseed" # Example
+    docker_run_group: "aiseed" # Example
+    prometheus_template_name: "docker-compose.yml.j2"
+    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
+    prometheus_config_template: "prometheus.yml.j2" # Assuming this name
+    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
+    # Ensure template directory exists early
+  block:
+    - name: Ensure Prometheus directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ docker_run_user }}"
+        group: "{{ docker_run_group }}"
+        mode: '0755'
+      loop:
+        - "{{ prometheus_compose_dir }}"
+        - "{{ prometheus_config_dir }}"
+        - "{{ prometheus_data_dir }}"
+        - "{{ role_path }}/templates"
+
+    - name: Deploy Prometheus configuration file (prometheus.yml)
+      ansible.builtin.template:
+        src: "{{ prometheus_config_template }}" # Use variable
+        dest: "{{ prometheus_config_file_path }}"
+        owner: "{{ docker_run_user }}"
+        group: "{{ docker_run_group }}"
+        mode: '0644'
+      notify: Restart Prometheus container
+
+    - name: Ensure Docker Compose V2 is available
+      ansible.builtin.command: docker compose version
+      register: compose_version_check
+      changed_when: false
+      failed_when: compose_version_check.rc != 0
+
+    - name: Deploy Prometheus docker-compose.yml file from template
+      ansible.builtin.template:
+        src: "{{ prometheus_template_name }}" # Assumes roles/prometheus/templates/docker-compose.yml.j2 exists
+        dest: "{{ prometheus_compose_file_path }}"
+        owner: "{{ docker_run_user }}"
+        group: "{{ docker_run_group }}"
+        mode: '0644'
+      notify: Start Prometheus container
+
+    - name: Ensure Prometheus container is running via Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ prometheus_compose_dir }}"
+        state: present
+        pull: missing
+      register: compose_result
+  # handlers for prometheus would go in roles/prometheus/handlers/main.yml typically
+
