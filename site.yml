@@ -1,13 +1,13 @@
 # /opt/architect_configs/site.yml
-# Version 1.4 (Automated) - Defining vars directly in plays
+# Version 1.5 (Automated) - Defining vars directly in plays
 ---
 - name: Apply common configuration to all hosts
   hosts: all
   become: yes
   gather_facts: yes
-  # REMOVED vars_files: directive for group_vars/all.yml
+  # Define ALL variables needed by roles in this play directly here
   vars:
-    # Define common vars needed by 'common' role here
+    # Vars for 'common' role
     system_timezone: "America/Denver"
     admin_users:
       - { username: aiseed, shell: /bin/bash }
@@ -26,63 +26,39 @@
       - unzip
       - ca-certificates
       - gnupg
-    # Add any other vars needed by the 'common' role or globally here
-    security_ssh_port: 22 # Needed by security role too? Define globally or per-play.
-    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24' # Example
-    docker_users_to_group: # Used by Docker role
+      - python3-pip # Added from base_python_setup playbook
+      - python3-venv # Added from base_python_setup playbook
+    # Vars for 'security' role (global aspects)
+    security_ssh_port: 22
+    security_fail2ban_enabled: false # Explicitly false if skipping
+    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
+    monitoring_allowed_sources: '192.168.0.0/24' # Used by UFW rules potentially
+    # Vars for 'docker' role
+    docker_users_to_group:
       - aiseed
       - pong
-    monitoring_allowed_sources: '192.168.0.0/24' # Used by security role
-    node_exporter_port: 9100 # Used by prometheus config template
-    loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push" # Used by promtail role
-
+    # Vars for 'node_exporter' role
+    node_exporter_port: 9100 # Also needed for prometheus scrape config
+    # Vars for 'promtail' role
+    loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push" # Assumes Loki runs on server
+    # Define specific UFW rules here if not using group_vars files at all
+    server_ufw_allow_rules: # Needed by security role when run on server host
+      - { comment: "Allow SSH from Client 'pong@pop-os'", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.96' }
+      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
+      - { comment: "Allow Prometheus from Client Subnet", port: '{{ prometheus_port_override | default(9091) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
+      # Add other server rules here (e.g., Loki 3100)
+      - { comment: "Allow Loki from Client Subnet", port: 3100, proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
+    client_ufw_allow_rules: # Needed by security role when run on client host
+      - { comment: "Allow SSH from Server 'aiseed@thosedataguys-s'", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.95' }
+      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
+      # Add other client rules here if needed
   roles:
     # Ensure roles/common/tasks/main.yml uses 'common_pkgs' now
     - common
-
-- name: Apply security baseline to all hosts
-  hosts: all
-  become: yes
-  gather_facts: no
-  # Vars needed by security role (if not defined globally above)
-  # vars:
-  #   security_ssh_port: 22
-  #   security_fail2ban_enabled: true # Example
-  #   fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
-  #   monitoring_allowed_sources: '192.168.0.0/24'
-  #   server_ufw_allow_rules: Defined in group_vars/server.yml still, but might move here
-  #   client_ufw_allow_rules: Define in group_vars/clients.yml or here
-  roles:
-    - security
-
-- name: Configure Docker on all hosts
-  hosts: all
-  become: yes
-  gather_facts: no
-  # Vars needed by docker role (if not defined globally above)
-  # vars:
-  #   docker_users_to_group:
-  #     - aiseed
-  #     - pong
-  roles:
-    - docker
-
-- name: Configure Node Exporter on all hosts
-  hosts: all
-  become: yes
-  gather_facts: no
-  roles:
-    - node_exporter
-
-- name: Configure Promtail on all hosts
-  hosts: all
-  become: yes
-  gather_facts: no
-  # Vars needed by promtail role (if not defined globally above)
-  # vars:
-  #  loki_server_url: "..."
-  roles:
-    - promtail
+    - security # Uses security_*, fail2ban_*, server/client_ufw_allow_rules, monitoring_allowed_sources
+    - docker # Uses docker_users_to_group
+    - node_exporter # Uses node_exporter_port indirectly via Prometheus config
+    - promtail # Uses loki_server_url
 
 # --- Server-Specific Configuration ---
 - name: Configure server-specific settings
@@ -103,11 +79,13 @@
     prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
     # Loki vars if needed by loki role
     loki_config_dir: "/opt/docker/loki/config" # Example
+    loki_data_dir: "/opt/docker/loki/data" # Example
+    loki_port: 3100 # Example
+    loki_compose_file_path: "{{ prometheus_compose_dir | replace('prometheus','loki') }}/docker-compose.yml" # Example path derivation
     # Grafana vars if needed by grafana role
   roles:
-    - prometheus
-    - loki
-    # - grafana
+    - prometheus # Uses prometheus_*, docker_run_* vars
+    - loki # Uses loki_* vars
 
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
