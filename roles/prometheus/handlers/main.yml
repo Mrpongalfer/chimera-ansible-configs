@@ -1,14 +1,15 @@
 ---
-# Handlers for Prometheus role
+# Handlers for Prometheus role - v1.1 Corrected Syntax
 
 - name: Restart Prometheus container
+  # This ensures the service defined in compose is running, effectively restarting if definition changed
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}" # Use var defined in group_vars/server.yml
+    project_src: "{{ prometheus_compose_dir }}" # Var from play vars (site.yml)
     state: present
-    restarted: true
 
 - name: Start Prometheus container
+  # This ensures the service defined in compose is running
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}" # Use var defined in group_vars/server.yml
+    project_src: "{{ prometheus_compose_dir }}" # Var from play vars (site.yml)
     state: present
-    started: true
+
