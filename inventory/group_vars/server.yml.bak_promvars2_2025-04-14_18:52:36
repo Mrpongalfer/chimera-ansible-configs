@@ -26,16 +26,3 @@ prometheus_template_name: "docker-compose.yml.j2"
 prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
 prometheus_config_template: "prometheus.yml.j2"
 prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
-
-# --- Prometheus Role Variables (Ensure values are correct) ---
-prometheus_config_dir: "/opt/docker/prometheus/config"
-prometheus_data_dir: "/opt/docker/prometheus/data"
-prometheus_compose_dir: "/opt/docker/prometheus"
-# prometheus_port: default 9090 used if prometheus_port_override absent
-docker_run_user: "aiseed" # User owning files/running compose on server - ADJUST IF NEEDED
-docker_run_group: "aiseed" # Group owning files on server - ADJUST IF NEEDED
-prometheus_template_name: "docker-compose.yml.j2"
-prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
-prometheus_config_template: "prometheus.yml.j2"
-prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
-node_exporter_port: 9100 # Default node exporter port for scrape config

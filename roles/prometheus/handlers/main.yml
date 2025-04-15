@@ -3,13 +3,12 @@
 
 - name: Restart Prometheus container
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}" # Use var defined in tasks/main.yml
+    project_src: "{{ prometheus_compose_dir }}" # Use var defined in group_vars/server.yml
     state: present
-    restarted: true # Use restarted instead of toggling started/stopped
+    restarted: true
 
 - name: Start Prometheus container
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}"
+    project_src: "{{ prometheus_compose_dir }}" # Use var defined in group_vars/server.yml
     state: present
     started: true
-
