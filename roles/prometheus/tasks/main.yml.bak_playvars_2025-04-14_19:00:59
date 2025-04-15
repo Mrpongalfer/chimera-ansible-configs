@@ -1,6 +1,6 @@
 ---
-# Tasks for Prometheus role - v1.7 Relying on Play Vars
-# Assumes ALL prometheus_* vars are defined directly in the calling play's 'vars:' section
+# Tasks for Prometheus role - v1.6 Final Vars Fix (No set_fact)
+# Assumes ALL prometheus_* vars are defined in inventory/group_vars/server.yml
 
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
@@ -17,12 +17,12 @@
 
 - name: Deploy Prometheus configuration file (prometheus.yml)
   ansible.builtin.template:
-    src: "{{ prometheus_config_template }}"
-    dest: "{{ prometheus_config_file_path }}"
+    src: "{{ prometheus_config_template }}" # Var from group_vars/server.yml
+    dest: "{{ prometheus_config_file_path }}" # Var from group_vars/server.yml
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
-  notify: Restart Prometheus container
+  notify: Restart Prometheus container # Assumes handler exists
 
 - name: Ensure Docker Compose V2 is available
   ansible.builtin.command: docker compose version
@@ -32,8 +32,8 @@
 
 - name: Deploy Prometheus docker-compose.yml file from template
   ansible.builtin.template:
-    src: "{{ prometheus_template_name }}"
-    dest: "{{ prometheus_compose_file_path }}"
+    src: "{{ prometheus_template_name }}" # Var from group_vars/server.yml
+    dest: "{{ prometheus_compose_file_path }}" # Var from group_vars/server.yml
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
@@ -41,7 +41,7 @@
 
 - name: Ensure Prometheus container is running via Docker Compose
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}"
+    project_src: "{{ prometheus_compose_dir }}" # Var from group_vars/server.yml
     state: present
     pull: missing
   register: compose_result

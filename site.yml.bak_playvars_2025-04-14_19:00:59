@@ -1,0 +1,90 @@
+# /opt/architect_configs/site.yml
+# Version 1.3 (Automated) - Using explicit vars_files for common_pkgs
+---
+- name: Apply common configuration to all hosts
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars_files: # <<< Explicitly load needed vars file
+    - ../vars/common_packages.yml # <<< Path relative to this playbook
+  # Original vars block remains for other play-level vars
+  vars:
+    system_timezone: "America/Denver"
+    admin_users:
+      - { username: aiseed, shell: /bin/bash }
+      - { username: pong, shell: /bin/bash }
+    baseline_system_packages: # This might be redundant now if common_pkgs covers it
+      - vim
+      - tmux
+      - curl
+      - wget
+      - htop
+      - ncdu
+      - tree
+      - unzip
+      - net-tools
+      - dnsutils
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - python3-pip
+      - python3-venv
+    security_ssh_port: 22
+    security_fail2ban_enabled: true
+    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
+    docker_users_to_group:
+      - aiseed
+      - pong
+    loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
+    monitoring_allowed_sources: '192.168.0.0/24'
+  roles:
+    - common
+
+# --- REMAINDER OF site.yml PLAYS ---
+# (Assuming structure from response #81 remains)
+
+- name: Apply security baseline to all hosts
+  hosts: all
+  become: yes
+  gather_facts: no
+  roles:
+    - security
+
+- name: Configure Docker on all hosts
+  hosts: all
+  become: yes
+  gather_facts: no
+  roles:
+    - docker
+
+- name: Configure Node Exporter on all hosts
+  hosts: all
+  become: yes
+  gather_facts: no
+  roles:
+    - node_exporter
+
+- name: Configure Promtail on all hosts
+  hosts: all
+  become: yes
+  gather_facts: no
+  roles:
+    - promtail
+
+# --- Server-Specific Configuration ---
+- name: Configure server-specific settings
+  hosts: server
+  become: yes
+  gather_facts: no
+  roles:
+    - prometheus
+    - loki
+    # - grafana
+
+# --- Client-Specific Configuration ---
+- name: Configure client-specific settings
+  hosts: clients
+  become: yes
+  gather_facts: no
+  roles:
+    - prompt_debug
