@@ -1,8 +1,8 @@
-# Ansible Vault Password File
-.ansible_vault_pass
+# Ansible Vault Password File (if stored locally)
+# .ansible_vault_pass
 *vault_pass
 
-# Python Virtual Environments
+# Python Virtual Environments (CRITICAL)
 venv/
 ansible_venv/
 ansible_venv_server/
@@ -19,7 +19,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Large Files / Data Dirs
+# Large Files / Data Dirs (Add specific patterns as needed)
 *.iso
 *.img
 *.zip
