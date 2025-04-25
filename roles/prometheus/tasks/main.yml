@@ -1,6 +1,5 @@
----
-# Tasks for Prometheus role - v1.7 Relying on Play Vars
-# Assumes ALL prometheus_* vars are defined directly in the calling play's 'vars:' section
+# File: roles/prometheus/tasks/main.yml
+# Version: Cleaned - Removed duplicate compose task & misplaced PPA check
 
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
@@ -8,11 +7,12 @@
     state: directory
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: "0755"
+    mode: '0755'
   loop:
     - "{{ prometheus_compose_dir }}"
     - "{{ prometheus_config_dir }}"
     - "{{ prometheus_data_dir }}"
+  tags: [prometheus, config]
 
 - name: Deploy Prometheus configuration file (prometheus.yml)
   ansible.builtin.template:
@@ -20,63 +20,45 @@
     dest: "{{ prometheus_config_file_path }}"
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: "0644"
-  notify: Restart Prometheus container
-
-  # ... (previous tasks: Ensure Dirs, Deploy Config, Check Compose v2, Deploy Compose Template) ...
-
-# ADD THIS TASK BEFORE the 'docker_compose_v2' task:
-- name: Ensure potentially conflicting container is absent
-  community.docker.docker_container:
-    name: prometheus # The explicit container name causing the conflict
-    state: absent
-    force_kill: yes # Force removal even if running
-  become: yes # Docker operations often need privileges
-  ignore_errors: yes # Don't fail if the container doesn't exist
-  tags: [prometheus, docker, run]
-
-- name: Ensure Prometheus container is running via Docker Compose
-  community.docker.docker_compose_v2:
-    project_name: prometheus_stack
-    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}"
-    state: present
-    pull: missing
-  register: compose_result
-  # notify: HandlerIfNeeded # Consider adding notify if needed
-  tags: [prometheus, docker, run]
+    mode: '0644'
+  # notify: HandlerIfNeeded # Consider adding notify if config changes should restart service
+  tags: [prometheus, config]
 
 - name: Ensure Docker Compose V2 is available
   ansible.builtin.command: docker compose version
   register: compose_version_check
   changed_when: false
   failed_when: compose_version_check.rc != 0
+  tags: [prometheus, docker, config]
 
 - name: Deploy Prometheus docker-compose.yml file from template
+  # Places the file on host for inspection/manual use if needed
   ansible.builtin.template:
     src: "{{ prometheus_template_name }}"
     dest: "{{ prometheus_compose_file_path }}"
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: "0644"
-  notify: Start Prometheus container # Consider changing to 'Restart Prometheus container' for consistency if config changes also require compose restart
+    mode: '0644'
+  # notify: HandlerIfNeeded # Consider adding notify if this change should restart service
+  tags: [prometheus, config]
 
-# --- Start: Corrected Prometheus Task Snippet ---
+- name: Ensure potentially conflicting container is absent
+  # Removes container with the explicit name if it exists from prior runs
+  community.docker.docker_container:
+    name: prometheus
+    state: absent
+    force_kill: yes
+  become: yes
+  ignore_errors: yes
+  tags: [prometheus, docker, run]
+
 - name: Ensure Prometheus container is running via Docker Compose
+  # Uses definition directly for cleaner execution
   community.docker.docker_compose_v2:
-    # project_src: "{{ prometheus_compose_dir }}" # Switching from project_src
-    project_name: prometheus_stack # ADDED project_name
-    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # ADDED definition lookup
+    project_name: prometheus_stack
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}"
     state: present
     pull: missing
   register: compose_result
-  # Note: Consider adding 'notify:' if config changes should trigger handler
+  # notify: HandlerIfNeeded
   tags: [prometheus, docker, run]
-# --- End: Corrected Prometheus Task Snippet ---
-
-- name: Ensure problematic lazygit PPA is removed (if present)
-  ansible.builtin.apt_repository:
-    repo: "ppa:lazygit-team/release"
-    state: absent
-  become: yes
-  when: "'server' in group_names" # Only run this on hosts in the 'server' group
-  ignore_errors: yes # Ignore if the PPA doesn't exist, just ensure it's gone

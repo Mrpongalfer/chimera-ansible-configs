@@ -1,5 +1,5 @@
 # File: roles/loki/templates/loki-config.yml.j2
-# Version: Removed invalid limits_config block
+# Version: Disabled structured metadata
 
 auth_enabled: false
 
@@ -9,7 +9,7 @@ server:
 
 common:
   instance_addr: 127.0.0.1
-  path_prefix: /loki # Note: data is stored under /loki inside the container
+  path_prefix: /loki
   storage:
     filesystem:
       chunks_directory: /loki/chunks
@@ -28,16 +28,17 @@ query_range:
 
 schema_config:
   configs:
-    - from: 2020-10-24 # Using a reasonably recent schema start date
-      store: boltdb-shipper
+    - from: 2020-10-24
+      store: boltdb-shipper # Using older shipper store
       object_store: filesystem
-      schema: v11 # v11 or v12 are common schemas
+      schema: v11 # Using older schema version
       index:
         prefix: index_
         period: 24h
 
 ruler:
-  alertmanager_url: http://localhost:9093 # Placeholder if Alertmanager is added later
+  alertmanager_url: http://localhost:9093 # Placeholder
 
-# The problematic 'limits_config:' section has been removed.
-# Loki will use internal defaults.
+# Added limits_config back JUST to disable structured metadata
+limits_config:
+  allow_structured_metadata: false
