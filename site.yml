@@ -175,6 +175,11 @@
   gather_facts: no
   vars:
     # Define ALL variables needed by server roles HERE
+    prometheus_port: 9091 # Value copied from 'all' play vars
+    node_exporter_port: 9100 # Value copied from 'all' play vars
+    loki_port: 3100 # Value copied from 'all' play vars (also defined below)
+    grafana_port: 3000 # Value copied from 'all' play vars (also defined below)
+
     # Using docker_run_user/group consistently
     docker_run_user: "aiseed"
     docker_run_group: "aiseed"
