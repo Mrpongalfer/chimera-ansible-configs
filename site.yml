@@ -1,6 +1,28 @@
 # /opt/architect_configs/site.yml
 # Version 1.5 (Automated) - Defining vars directly in plays
+
+# --- Start: Add this new play at the TOP of site.yml ---
 ---
+- name: Pre-flight APT Cleanup on Server(s)
+  hosts: server
+  become: yes
+  gather_facts: no # Optimization: No need for facts here
+  tasks:
+    - name: Ensure problematic lazygit PPA is removed
+      ansible.builtin.apt_repository:
+        repo: "ppa:lazygit-team/release"
+        state: absent
+        filename: 'lazygit-team-ubuntu-release-noble' # Optional: Be more specific if you know the filename in sources.list.d
+      ignore_errors: yes # Don't fail if it's already absent
+
+# --- End: New play ---
+
+# --- Existing plays follow below ---
+- name: Apply common configuration to all hosts
+  hosts: all
+  become: yes
+  gather_facts: yes
+  # ... rest of the existing play ...
 - name: Apply common configuration to all hosts
   hosts: all
   become: yes
