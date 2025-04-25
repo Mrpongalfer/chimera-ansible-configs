@@ -46,7 +46,7 @@
     mode: "{{ item.mode | default('0644') }}"
   loop:
     # Configs
-    - { src: "gitignore_tmpl", dest: ".gitignore" } # Note source name
+    - { src: "gitignore_tmpl", dest: ".gitignore" }
     - { src: "requirements.txt", dest: "orchestrator/requirements.txt" }
     - { src: "vscode_config/settings.json", dest: ".vscode/settings.json" }
     - { src: "vscode_config/extensions.json", dest: ".vscode/extensions.json" }
@@ -64,44 +64,20 @@
         src: "prompt_templates/sub_injection_prompts.yaml",
         dest: "orchestrator/prompt_templates/sub_injection_prompts.yaml",
       }
-    # Python Skeletons (__init__.py handled by 'template' task below)
-    - { src: "python_skeletons/config.py", dest: "orchestrator/config.py" }
-    - {
-        src: "python_skeletons/data_types.py",
-        dest: "orchestrator/core/data_types.py",
-      }
-    - { src: "python_skeletons/utils.py", dest: "orchestrator/core/utils.py" }
-    - {
-        src: "python_skeletons/llm_tools.py",
-        dest: "orchestrator/core/llm_tools.py",
-      }
-    - {
-        src: "python_skeletons/prompts.py",
-        dest: "orchestrator/core/prompts.py",
-      }
-    - { src: "python_skeletons/main.py", dest: "orchestrator/main.py" }
-    - {
-        src: "python_skeletons/phase_1.py",
-        dest: "orchestrator/phases/phase_1.py",
-      }
-    - {
-        src: "python_skeletons/phase_2.py",
-        dest: "orchestrator/phases/phase_2.py",
-      }
-    - {
-        src: "python_skeletons/phase_3.py",
-        dest: "orchestrator/phases/phase_3.py",
-      }
-    - {
-        src: "python_skeletons/phase_4.py",
-        dest: "orchestrator/phases/phase_4.py",
-      }
-    - {
-        src: "python_skeletons/phase_5.py",
-        dest: "orchestrator/phases/phase_5.py",
-      }
-    - { src: "python_skeletons/tui_app.py", dest: "orchestrator/tui/app.py" }
-    - { src: "python_skeletons/tui_app.css", dest: "orchestrator/tui/app.css" }
+    # Python Skeletons (CORRECTED src paths - removed 'python_skeletons/')
+    - { src: "config.py", dest: "orchestrator/config.py" }
+    - { src: "data_types.py", dest: "orchestrator/core/data_types.py" }
+    - { src: "utils.py", dest: "orchestrator/core/utils.py" }
+    - { src: "llm_tools.py", dest: "orchestrator/core/llm_tools.py" }
+    - { src: "prompts.py", dest: "orchestrator/core/prompts.py" }
+    - { src: "main.py", dest: "orchestrator/main.py" }
+    - { src: "phase_1.py", dest: "orchestrator/phases/phase_1.py" }
+    - { src: "phase_2.py", dest: "orchestrator/phases/phase_2.py" }
+    - { src: "phase_3.py", dest: "orchestrator/phases/phase_3.py" }
+    - { src: "phase_4.py", dest: "orchestrator/phases/phase_4.py" }
+    - { src: "phase_5.py", dest: "orchestrator/phases/phase_5.py" }
+    - { src: "tui_app.py", dest: "orchestrator/tui/app.py" }
+    - { src: "tui_app.css", dest: "orchestrator/tui/app.css" }
     # Helper Scripts
     - {
         src: "scripts/install_deps.sh",
@@ -146,8 +122,10 @@
   args:
     chdir: "{{ wp_project_root }}"
     creates: "{{ wp_project_root }}/.git" # Run only if .git doesn't exist
-  become: yes # Run git init potentially as root? No, run as target user.
+  become: yes
   become_user: "{{ wp_target_user }}"
+  register: git_init_result
+  changed_when: "'Initialized empty Git repository' in git_init_result.stdout"
 
 - name: Install dependencies using the script (creates venv)
   ansible.builtin.command: bash scripts/install_deps.sh
@@ -160,16 +138,16 @@
   changed_when: "'Successfully installed' in pip_install_result.stdout"
   failed_when: pip_install_result.rc != 0
 
-- name: Ensure .env file exists (template/copy later if needed)
+- name: Ensure .env file exists (will be empty, user needs to populate)
   ansible.builtin.file:
     path: "{{ wp_project_root }}/orchestrator/.env"
     state: touch
     owner: "{{ wp_target_user }}"
     group: "{{ wp_target_group }}"
     mode: "0600" # Restrict permissions
-  notify: Notify user to populate .env # Handler needed
+  notify: Notify user to populate .env # Handler defined below (or create handlers/main.yml)
 
-# Example handler definition (place in roles/wizardpro_bootstrap/handlers/main.yml)
+# handlers file content should be in roles/wizardpro_bootstrap/handlers/main.yml
 # - name: Notify user to populate .env
 #   ansible.builtin.debug:
-#     msg: "ACTION REQUIRED: Please populate {{ wp_project_root }}/orchestrator/.env with your API keys and default LLM settings."
+#     msg: "ACTION REQUIRED: Playbook complete. Please populate {{ wp_project_root }}/orchestrator/.env with API keys/config."
