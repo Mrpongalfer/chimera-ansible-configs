@@ -1,28 +1,31 @@
-# File: roles/prometheus/templates/prometheus.yml.j2
-# Version: Merged Remote Changes + Correct Self-Scrape Port + Refined Jinja
+# File: roles/grafana/templates/docker-compose.yml.j2
+# Cleaned version for external network syntax
 
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+volumes:
+  grafana_data: {}
 
-scrape_configs:
-  - job_name: "prometheus"
-    # Scrape Prometheus itself (inside Docker, uses internal port 9090)
-    static_configs:
-      - targets: ["localhost:9090"] # CORRECTED PORT to internal 9090
+networks:
+  # Define the existing external network created by Prometheus
+  monitoring_net: # Alias used by services below
+    name: prometheus_stack_monitoring_net # Actual Docker network name
+    external: true
 
-  - job_name: "node_exporter"
-    # Scrape node_exporter based on inventory groups
-    static_configs:
-      - targets:
-{%- set ne_targets = [] %} {# Initialize list #}
-{%- set ne_port = node_exporter_port | default(9100) %} {# Get default port from vars #}
-{%- for host in (groups['server'] | default([])) + (groups['clients'] | default([])) %} {# Combine server & client groups safely #}
-{%-   set host_ip = hostvars[host]['ansible_host'] | default(host) %} {# Use connection IP or inventory name #}
-{%-   set _ = ne_targets.append(host_ip ~ ':' ~ ne_port) %} {# Append 'host:port' #}
-{%- endfor %}
-{{ ne_targets | to_yaml | indent(8) }} {# Output list as YAML #}
-
-# Add alerting rules configuration if needed
-# rule_files:
-#   - "/etc/prometheus/rules/*.rules.yml"
+services:
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # Optional: Mount custom configs if needed later
+      # - "{{ grafana_config_dir }}/grafana.ini:/etc/grafana/grafana.ini"
+    ports:
+      - "{{ grafana_port | default(3000) }}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password | default('ChangeMePlease!') }}
+    networks:
+      # Connect service to the network defined above
+      - monitoring_net # Use the alias defined under top-level 'networks:'
+    labels:
+      org.label-schema.group: "monitoring"
+      managed-by: "ansible-chimera-prime"
