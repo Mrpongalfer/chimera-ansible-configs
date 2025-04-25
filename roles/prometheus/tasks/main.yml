@@ -2,6 +2,7 @@
 # Tasks for Prometheus role - v1.7 Relying on Play Vars
 # Assumes ALL prometheus_* vars are defined directly in the calling play's 'vars:' section
 
+# --- Start of Corrected Snippet ---
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
     path: "{{ item }}"
@@ -9,10 +10,11 @@
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
     mode: '0755'
-- loop:
--   - "{{ prometheus_compose_dir }}"
--   - "{{ prometheus_config_dir }}"
--   - "{{ prometheus_data_dir }}"
+  loop:
+    - "{{ prometheus_compose_dir }}"  # Correct: Single hyphen
+    - "{{ prometheus_config_dir }}"   # Correct: Single hyphen
+    - "{{ prometheus_data_dir }}"    # Correct: Single hyphen
+# --- End of Corrected Snippet ---
 -   - "{{ role_path }}/templates" # Ensure templates dir exists relative to role
 + loop:
 +   - "{{ prometheus_compose_dir }}"
