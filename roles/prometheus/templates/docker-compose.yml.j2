@@ -1,48 +1,42 @@
-# ~/Projects/chimera-ansible-configs/roles/prometheus/templates/docker-compose.yml.j2
+# File: roles/prometheus/templates/docker-compose.yml.j2
+# Version: Cleaned for Syntax/Indentation Check
+
 version: '3.7'
 
 volumes:
-  # Define a Docker volume for persistent Prometheus data
   prometheus_data: {}
 
 networks:
-  # Define a network for monitoring components
   monitoring_net:
     driver: bridge
 
 services:
-  prometheus:
-    image: prom/prometheus:latest # Use the latest official image
+  prometheus: # Start of service definition (2 spaces indent)
+    image: prom/prometheus:latest
     container_name: prometheus
-    restart: unless-stopped # Ensure service restarts automatically
-    volumes:
-      # Mount the main configuration file (templated by Ansible onto the host)
+    restart: unless-stopped
+    volumes: # (4 spaces indent)
+      # Mount config (read-only)
       - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      # Mount the persistent data volume
+      # Mount data volume
       - prometheus_data:/prometheus
-    command:
-      # Specify command line arguments for Prometheus
+    command: # (4 spaces indent)
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle' # Allows hot-reloading config via API
-    - ports:
-    -   # Expose Prometheus port 9090 to the host
-    -   - "{{ prometheus_port | default('9090') }}:9090" # Use variable for flexibility
-    + ports:
-    +   # Expose Prometheus port to the host, using override variable if defined
-    +   - "{{ prometheus_port_override | default('9090') }}:9090"
-    networks:
-      # Connect to the monitoring network
+      - '--web.enable-lifecycle'
+    ports: # (4 spaces indent)
+      # Use override variable from site.yml, default to 9090 if not set
+      - "{{ prometheus_port_override | default('9090') }}:9090"
+    networks: # (4 spaces indent)
       - monitoring_net
-    labels:
-      # Add labels for organization/tooling
+    labels: # (4 spaces indent)
       org.label-schema.group: "monitoring"
       managed-by: "ansible-chimera-prime"
 
-  # Potential future addition: Node Exporter (Ensure handled by appropriate role/tasks)
-  # node_exporter:
-  #   image: prom/node-exporter:latest
-  #   container_name: node_exporter
-  #   # ... configuration ...
+#  node_exporter: # Example commented out service (2 spaces indent)
+#    image: prom/node-exporter:latest
+#    container_name: node_exporter
+#    restart: unless-stopped
+#    # ... other config ...
