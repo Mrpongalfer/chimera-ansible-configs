@@ -1,11 +1,12 @@
 # File: /home/pong/Projects/chimera-ansible-configs/site.yml
-# Version: 1.9.1 - Integrated WizardPro Bootstrap
+# Version: 2.0 FINAL - Deploys Monitoring Stack & Quantum Orchestrator
 
 ---
 - name: Pre-flight APT Cleanup and Validation on Server(s)
-  hosts: server # Target only the server for cleanup specific to it
+  hosts: server
   become: yes
   gather_facts: no
+  tags: [always] # Ensure pre-flight runs even when tagging plays
   tasks:
     # --- LazyGit PPA Cleanup ---
     - name: Attempt removal of problematic lazygit PPA via module
@@ -55,7 +56,6 @@
     - name: Clean APT package cache thoroughly
       ansible.builtin.command: apt-get clean -y
       changed_when: false
-      tags: always # Ensure clean runs even if skipping other tags
 
     - name: Update APT cache explicitly AFTER cleanup to validate
       ansible.builtin.apt:
@@ -64,7 +64,6 @@
       retries: 1
       delay: 3
       until: preflight_apt_update_result is succeeded
-      tags: always # Ensure update runs
 
 # --- Main Configuration Play ---
 - name: Apply common configuration to all hosts
@@ -72,12 +71,11 @@
   become: yes
   gather_facts: yes
   vars:
-    # Common Vars
+    # --- Common Variables ---
     system_timezone: "America/Denver"
     admin_users:
       - { username: aiseed, shell: /bin/bash }
       - { username: pong, shell: /bin/bash }
-    # Common packages defined here
     common_pkgs:
       - build-essential
       - python3-dev
@@ -95,18 +93,24 @@
       - python3-pip
       - python3-venv
       - chrony
-    # Security Vars
+      - rsync
+      - libpq-dev # Added for psycopg2 system dependency
+
+    # --- Security Variables ---
     security_ssh_port: 22
-    security_fail2ban_enabled: false # Keep false if handled separately or not needed
+    security_fail2ban_enabled: false
     fail2ban_ignoreip: "127.0.0.1/8 ::1 192.168.0.0/24"
     monitoring_allowed_sources: "192.168.0.0/24"
-    # Define Ports
+
+    # --- Port Definitions ---
     prometheus_port: 9091
     loki_port: 3100
     grafana_port: 3000
     node_exporter_port: 9100
     qo_app_port: 8000 # Quantum Orchestrator API Port
-    # Define UFW rules - applied via security role using these vars
+
+    # --- UFW Rules ---
+    # Rules applied by 'security' role based on group membership
     server_ufw_allow_rules:
       - {
           comment: "Allow SSH from Client",
@@ -138,7 +142,6 @@
         }
       - {
           comment: "Allow Grafana from Monitoring Subnet",
-         - { comment: "Allow Quantum Orchestrator API", port: '{{ qo_app_port | default(8000) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
           port: "{{ grafana_port }}",
           proto: tcp,
           rule: allow,
@@ -150,7 +153,14 @@
           proto: tcp,
           rule: allow,
           src: "{{ monitoring_allowed_sources }}",
-        } # Added Node Exporter Rule for Server
+        }
+      - {
+          comment: "Allow Quantum Orchestrator API",
+          port: "{{ qo_app_port }}",
+          proto: tcp,
+          rule: allow,
+          src: "{{ monitoring_allowed_sources }}",
+        } # Corrected syntax
     client_ufw_allow_rules:
       - {
           comment: "Allow SSH from Server",
@@ -172,44 +182,49 @@
           proto: tcp,
           rule: allow,
           src: "{{ monitoring_allowed_sources }}",
-        } # Added Node Exporter Rule for Client
-    # Docker Vars
+        }
+
+    # --- Docker Variables ---
     docker_users_to_group:
       - aiseed
       - pong
-    # Promtail Vars
+
+    # --- Promtail Variables ---
     loki_server_url: "http://192.168.0.95:{{ loki_port }}/loki/api/v1/push"
 
-    # Quantum Orchestrator Vars (define paths, model)
-    qo_local_code_path: "/home/pong/Projects/replitwork" # Source code on control node
-    qo_base_dir: "/opt/docker/quantum_orchestrator"
-    qo_deploy_dir: "{{ qo_base_dir }}"
-    qo_app_port: 8000 # Define app port
-    qo_container_port: 8000 # Port inside container
-    qo_llm_model: "mixtral" # Default local model
-    # Add vault lookups here if needed directly, e.g.:
-    # my_vault_var: "{{ vault_my_secret }}"
   roles:
-    - common
-    - security
-    - docker
-    - node_exporter
-    - promtail
+    - role: common
+      tags: [common]
+    - role: security
+      tags: [security]
+    - role: docker
+      tags: [docker]
+    - role: node_exporter
+      tags: [monitoring, node_exporter]
+    - role: promtail
+      tags: [monitoring, promtail]
 
 # --- Server-Specific Configuration ---
-- name: Configure server-specific settings (Monitoring Stack & WizardPro Bootstrap)
-  hosts: server # Target only the server host(s) defined in inventory
+- name: Configure server-specific services (Monitoring Stack & Quantum Orchestrator)
+  hosts: server
   become: yes
-  gather_facts: no # Facts gathered in 'all' play
+  gather_facts: no
   vars:
     # Define variables needed specifically by roles running only on the server
-    # Values can be copied from 'all' play vars if needed, or defined uniquely here
-    prometheus_port: "{{ hostvars[inventory_hostname].prometheus_port | default(9091) }}" # Inherit from all play if possible
-    loki_port: "{{ hostvars[inventory_hostname].loki_port | default(3100) }}"
-    grafana_port: "{{ hostvars[inventory_hostname].grafana_port | default(3000) }}"
-    docker_run_user: "aiseed" # Specific user for these containers
+
+    # Explicitly define ports here again to ensure scope for roles
+    # (This proved necessary during debugging)
+    prometheus_port: 9091
+    loki_port: 3100
+    grafana_port: 3000
+    node_exporter_port: 9100 # Needed by Prometheus template
+    qo_app_port: 8000 # Needed by Quantum Orchestrator role / UFW
+
+    # User/Group for container files/processes on server
+    docker_run_user: "aiseed"
     docker_run_group: "aiseed"
-    # Prometheus Vars
+
+    # Prometheus Paths & Config
     prometheus_base_dir: "/opt/docker/prometheus"
     prometheus_config_dir: "{{ prometheus_base_dir }}/config"
     prometheus_data_dir: "{{ prometheus_base_dir }}/data"
@@ -218,61 +233,51 @@
     prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
     prometheus_config_template: "prometheus.yml.j2"
     prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
-    # Loki Vars
+
+    # Loki Paths & Config
     loki_base_dir: "/opt/docker/loki"
     loki_config_dir: "{{ loki_base_dir }}/config"
-    loki_data_dir: "{{ loki_base_dir }}/data" # Data volume managed by Docker now likely
+    loki_data_dir: "{{ loki_base_dir }}/data"
     loki_compose_dir: "{{ loki_base_dir }}"
     loki_compose_file_path: "{{ loki_compose_dir }}/docker-compose.yml"
     loki_config_template: "loki-config.yml.j2"
     loki_config_file_path: "{{ loki_config_dir }}/loki-config.yml"
-    # Grafana Vars
+
+    # Grafana Paths & Config
     grafana_base_dir: "/opt/docker/grafana"
-    grafana_data_dir: "{{ grafana_base_dir }}/data" # Docker volume is likely better
+    grafana_config_dir: "{{ grafana_base_dir }}/config"
+    grafana_data_dir: "{{ grafana_base_dir }}/data"
     grafana_compose_dir: "{{ grafana_base_dir }}"
     grafana_compose_file_path: "{{ grafana_compose_dir }}/docker-compose.yml"
-    grafana_admin_password: "{{ vault_grafana_admin_password | default('CHANGEME_PLZ') }}" # Use default or vault
+    grafana_admin_password: "{{ vault_grafana_admin_password | default('ChangeMePlease!') }}"
 
-    # Quantum Orchestrator Vars (define paths, model)
+    # Quantum Orchestrator Vars
     qo_local_code_path: "/home/pong/Projects/replitwork" # Source code on control node
     qo_base_dir: "/opt/docker/quantum_orchestrator"
     qo_deploy_dir: "{{ qo_base_dir }}"
-    qo_app_port: 8000 # Define app port
-    qo_container_port: 8000 # Port inside container
-    qo_llm_model: "mixtral" # Default local model
-    # Add vault lookups here if needed directly, e.g.:
-    # my_vault_var: "{{ vault_my_secret }}"
+    qo_container_port: 8000 # Internal port defined in Dockerfile/App
+    qo_llm_model: "mixtral" # Default local model for Ollama service
+
   roles:
     - role: prometheus
-      tags: monitoring
+      tags: [monitoring, prometheus]
     - role: loki
-      tags: monitoring
+      tags: [monitoring, loki]
     - role: grafana
-      tags: monitoring
-    # --- ADD WIZARDPRO BOOTSTRAP ROLE HERE ---
-    - role: wizardpro_bootstrap
-      tags: wizardpro
+      tags: [monitoring, grafana]
+    - role: quantum_orchestrator # Correct role name
+      tags: [app, quantum_orchestrator]
 
-    - quantum_orchestrator
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
-  hosts: clients # Target only the client host(s)
+  hosts: clients
   become: yes
   gather_facts: no
   vars:
     placeholder_client_var: true # Example if client needs specific vars
-    # Quantum Orchestrator Vars (define paths, model)
-    qo_local_code_path: "/home/pong/Projects/replitwork" # Source code on control node
-    qo_base_dir: "/opt/docker/quantum_orchestrator"
-    qo_deploy_dir: "{{ qo_base_dir }}"
-    qo_app_port: 8000 # Define app port
-    qo_container_port: 8000 # Port inside container
-    qo_llm_model: "mixtral" # Default local model
-    # Add vault lookups here if needed directly, e.g.:
-    # my_vault_var: "{{ vault_my_secret }}"
+    # No QO vars needed here
   roles:
     # Add any client-specific roles here if needed later
     # - role: some_client_role
-    - role: prompt_debug # Keeping placeholder from user provided file for now
-
-# --- Removed duplicate play definition that was here ---
+    - role: prompt_debug # Keeping placeholder for now
+      tags: [debug] # Assign tag
