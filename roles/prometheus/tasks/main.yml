@@ -23,6 +23,28 @@
     mode: "0644"
   notify: Restart Prometheus container
 
+  # ... (previous tasks: Ensure Dirs, Deploy Config, Check Compose v2, Deploy Compose Template) ...
+
+# ADD THIS TASK BEFORE the 'docker_compose_v2' task:
+- name: Ensure potentially conflicting container is absent
+  community.docker.docker_container:
+    name: prometheus # The explicit container name causing the conflict
+    state: absent
+    force_kill: yes # Force removal even if running
+  become: yes # Docker operations often need privileges
+  ignore_errors: yes # Don't fail if the container doesn't exist
+  tags: [prometheus, docker, run]
+
+- name: Ensure Prometheus container is running via Docker Compose
+  community.docker.docker_compose_v2:
+    project_name: prometheus_stack
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}"
+    state: present
+    pull: missing
+  register: compose_result
+  # notify: HandlerIfNeeded # Consider adding notify if needed
+  tags: [prometheus, docker, run]
+
 - name: Ensure Docker Compose V2 is available
   ansible.builtin.command: docker compose version
   register: compose_version_check
