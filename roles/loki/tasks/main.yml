@@ -1,7 +1,5 @@
 # /opt/architect_configs/roles/loki/tasks/main.yml
----
 # Tasks to deploy Loki via Docker Compose
-
 - name: Set Loki configuration facts
   ansible.builtin.set_fact:
     loki_base_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}"
