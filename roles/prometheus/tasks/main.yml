@@ -35,6 +35,17 @@
   failed_when: compose_version_check.rc != 0
   become: true # May need sudo if docker requires it
 
+# --- Insert this task BEFORE the 'Deploy Prometheus docker-compose.yml...' task ---
+- name: Debug prometheus_port variable
+  ansible.builtin.debug:
+    var: prometheus_port
+  tags: [prometheus, config] # Reuse tags
+# --- End of inserted task ---
+
+# Existing template task should follow immediately after:
+- name: Deploy Prometheus docker-compose.yml file from template
+  # ... rest of this task ...
+
 - name: Deploy Prometheus docker-compose.yml file from template
   ansible.builtin.template:
     src: "{{ prometheus_template_name }}"
