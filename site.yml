@@ -1,9 +1,9 @@
 # File: /home/pong/Projects/chimera-ansible-configs/site.yml
-# Version: 1.9 FINAL MERGED - Deploy Prometheus, Loki, Grafana
+# Version: 1.9.1 - Integrated WizardPro Bootstrap
 
 ---
 - name: Pre-flight APT Cleanup and Validation on Server(s)
-  hosts: server
+  hosts: server # Target only the server for cleanup specific to it
   become: yes
   gather_facts: no
   tasks:
@@ -55,6 +55,7 @@
     - name: Clean APT package cache thoroughly
       ansible.builtin.command: apt-get clean -y
       changed_when: false
+      tags: always # Ensure clean runs even if skipping other tags
 
     - name: Update APT cache explicitly AFTER cleanup to validate
       ansible.builtin.apt:
@@ -63,6 +64,7 @@
       retries: 1
       delay: 3
       until: preflight_apt_update_result is succeeded
+      tags: always # Ensure update runs
 
 # --- Main Configuration Play ---
 - name: Apply common configuration to all hosts
@@ -75,6 +77,7 @@
     admin_users:
       - { username: aiseed, shell: /bin/bash }
       - { username: pong, shell: /bin/bash }
+    # Common packages defined here
     common_pkgs:
       - build-essential
       - python3-dev
@@ -94,72 +97,86 @@
       - chrony
     # Security Vars
     security_ssh_port: 22
-    security_fail2ban_enabled: false
+    security_fail2ban_enabled: false # Keep false if handled separately or not needed
     fail2ban_ignoreip: "127.0.0.1/8 ::1 192.168.0.0/24"
     monitoring_allowed_sources: "192.168.0.0/24"
-    # Define Ports (used in UFW rules and potentially by roles)
-    prometheus_port: 9091 # Using the name from the remote version
+    # Define Ports
+    prometheus_port: 9091
     loki_port: 3100
-    grafana_port: 3000 # Added Grafana port
+    grafana_port: 3000
     node_exporter_port: 9100
-    # Define UFW rules
+    # Define UFW rules - applied via security role using these vars
     server_ufw_allow_rules:
       - {
           comment: "Allow SSH from Client",
-          port: "{{ security_ssh_port | default(22) }}",
+          port: "{{ security_ssh_port }}",
           proto: tcp,
           rule: allow,
           src: "192.168.0.96",
         }
       - {
           comment: "Allow SSH from Localhost",
-          port: "{{ security_ssh_port | default(22) }}",
+          port: "{{ security_ssh_port }}",
           proto: tcp,
           rule: allow,
           src: "127.0.0.1",
         }
       - {
           comment: "Allow Prometheus from Monitoring Subnet",
-          port: "{{ prometheus_port | default(9091) }}",
+          port: "{{ prometheus_port }}",
           proto: tcp,
           rule: allow,
           src: "{{ monitoring_allowed_sources }}",
-        } # Uses prometheus_port
+        }
       - {
           comment: "Allow Loki from Monitoring Subnet",
-          port: "{{ loki_port | default(3100) }}",
+          port: "{{ loki_port }}",
           proto: tcp,
           rule: allow,
           src: "{{ monitoring_allowed_sources }}",
         }
       - {
           comment: "Allow Grafana from Monitoring Subnet",
-          port: "{{ grafana_port | default(3000) }}",
+          port: "{{ grafana_port }}",
           proto: tcp,
           rule: allow,
           src: "{{ monitoring_allowed_sources }}",
-        } # ADDED Grafana UFW Rule
+        }
+      - {
+          comment: "Allow Node Exporter from Monitoring Subnet",
+          port: "{{ node_exporter_port }}",
+          proto: tcp,
+          rule: allow,
+          src: "{{ monitoring_allowed_sources }}",
+        } # Added Node Exporter Rule for Server
     client_ufw_allow_rules:
       - {
           comment: "Allow SSH from Server",
-          port: "{{ security_ssh_port | default(22) }}",
+          port: "{{ security_ssh_port }}",
           proto: tcp,
           rule: allow,
           src: "192.168.0.95",
         }
       - {
           comment: "Allow SSH from Localhost",
-          port: "{{ security_ssh_port | default(22) }}",
+          port: "{{ security_ssh_port }}",
           proto: tcp,
           rule: allow,
           src: "127.0.0.1",
         }
+      - {
+          comment: "Allow Node Exporter from Monitoring Subnet",
+          port: "{{ node_exporter_port }}",
+          proto: tcp,
+          rule: allow,
+          src: "{{ monitoring_allowed_sources }}",
+        } # Added Node Exporter Rule for Client
     # Docker Vars
     docker_users_to_group:
       - aiseed
       - pong
-    # Promtail Vars (referencing defined loki_port)
-    loki_server_url: "http://192.168.0.95:{{ loki_port | default(3100) }}/loki/api/v1/push"
+    # Promtail Vars
+    loki_server_url: "http://192.168.0.95:{{ loki_port }}/loki/api/v1/push"
 
   roles:
     - common
@@ -169,57 +186,63 @@
     - promtail
 
 # --- Server-Specific Configuration ---
-- name: Configure server-specific settings
-  hosts: server
+- name: Configure server-specific settings (Monitoring Stack & WizardPro Bootstrap)
+  hosts: server # Target only the server host(s) defined in inventory
   become: yes
-  gather_facts: no
+  gather_facts: no # Facts gathered in 'all' play
   vars:
-    # Define ALL variables needed by server roles HERE
-    prometheus_port: 9091 # Value copied from 'all' play vars
-    node_exporter_port: 9100 # Value copied from 'all' play vars
-    loki_port: 3100 # Value copied from 'all' play vars (also defined below)
-    grafana_port: 3000 # Value copied from 'all' play vars (also defined below)
-
-    # Using docker_run_user/group consistently
-    docker_run_user: "aiseed"
+    # Define variables needed specifically by roles running only on the server
+    # Values can be copied from 'all' play vars if needed, or defined uniquely here
+    prometheus_port: "{{ hostvars[inventory_hostname].prometheus_port | default(9091) }}" # Inherit from all play if possible
+    loki_port: "{{ hostvars[inventory_hostname].loki_port | default(3100) }}"
+    grafana_port: "{{ hostvars[inventory_hostname].grafana_port | default(3000) }}"
+    docker_run_user: "aiseed" # Specific user for these containers
     docker_run_group: "aiseed"
-    # Prometheus Vars (Using prometheus_port name)
-    # prometheus_port defined in 'all' play vars now
+    # Prometheus Vars
     prometheus_base_dir: "/opt/docker/prometheus"
     prometheus_config_dir: "{{ prometheus_base_dir }}/config"
     prometheus_data_dir: "{{ prometheus_base_dir }}/data"
     prometheus_compose_dir: "{{ prometheus_base_dir }}"
-    prometheus_template_name: "docker-compose.yml.j2" # Source template filename
-    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml" # Dest compose filepath
-    prometheus_config_template: "prometheus.yml.j2" # Source template filename
-    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml" # Dest config filepath
-    # Loki Vars (Using loki_port from 'all' play vars)
+    prometheus_template_name: "docker-compose.yml.j2"
+    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
+    prometheus_config_template: "prometheus.yml.j2"
+    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
+    # Loki Vars
     loki_base_dir: "/opt/docker/loki"
     loki_config_dir: "{{ loki_base_dir }}/config"
-    loki_data_dir: "{{ loki_base_dir }}/data"
+    loki_data_dir: "{{ loki_base_dir }}/data" # Data volume managed by Docker now likely
     loki_compose_dir: "{{ loki_base_dir }}"
     loki_compose_file_path: "{{ loki_compose_dir }}/docker-compose.yml"
-    loki_config_template: "loki-config.yml.j2" # Source template filename
-    loki_config_file_path: "{{ loki_config_dir }}/loki-config.yml" # Dest config filepath
-    # Grafana Vars (Using grafana_port from 'all' play vars)
+    loki_config_template: "loki-config.yml.j2"
+    loki_config_file_path: "{{ loki_config_dir }}/loki-config.yml"
+    # Grafana Vars
     grafana_base_dir: "/opt/docker/grafana"
-    grafana_config_dir: "{{ grafana_base_dir }}/config"
-    grafana_data_dir: "{{ grafana_base_dir }}/data" # Used only if mounting host dir
+    grafana_data_dir: "{{ grafana_base_dir }}/data" # Docker volume is likely better
     grafana_compose_dir: "{{ grafana_base_dir }}"
     grafana_compose_file_path: "{{ grafana_compose_dir }}/docker-compose.yml"
-    grafana_admin_password: "{{ vault_grafana_admin_password | default('ChangeMePlease!') }}" # Use Vault ideally!
+    grafana_admin_password: "{{ vault_grafana_admin_password | default('CHANGEME_PLZ') }}" # Use default or vault
 
   roles:
-    - prometheus
-    - loki
-    - grafana # UNCOMMENTED Grafana role
+    - role: prometheus
+      tags: monitoring
+    - role: loki
+      tags: monitoring
+    - role: grafana
+      tags: monitoring
+    # --- ADD WIZARDPRO BOOTSTRAP ROLE HERE ---
+    - role: wizardpro_bootstrap
+      tags: wizardpro
 
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
-  hosts: clients
+  hosts: clients # Target only the client host(s)
   become: yes
   gather_facts: no
   vars:
-    placeholder_client_var: true
+    placeholder_client_var: true # Example if client needs specific vars
   roles:
-    - prompt_debug # Keeping placeholder from user provided file
+    # Add any client-specific roles here if needed later
+    # - role: some_client_role
+    - role: prompt_debug # Keeping placeholder from user provided file for now
+
+# --- Removed duplicate play definition that was here ---
