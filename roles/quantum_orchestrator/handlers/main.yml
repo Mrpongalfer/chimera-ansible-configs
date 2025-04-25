@@ -1,0 +1,11 @@
+---
+# File: roles/quantum_orchestrator/handlers/main.yml
+- name: Restart Quantum Orchestrator stack
+  community.docker.docker_compose_v2:
+    project_name: qo_stack
+    project_src: "{{ qo_deploy_dir }}" # Use directory containing compose file
+    state: present
+    restarted: true # Use restart flag for handlers if available and desired
+    # definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Can use definition too
+    # state: present # 'present' alone might recreate if definition changed
+  become: yes

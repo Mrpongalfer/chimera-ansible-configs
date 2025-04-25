@@ -105,6 +105,7 @@
     loki_port: 3100
     grafana_port: 3000
     node_exporter_port: 9100
+    qo_app_port: 8000 # Quantum Orchestrator API Port
     # Define UFW rules - applied via security role using these vars
     server_ufw_allow_rules:
       - {
@@ -137,6 +138,7 @@
         }
       - {
           comment: "Allow Grafana from Monitoring Subnet",
+         - { comment: "Allow Quantum Orchestrator API", port: '{{ qo_app_port | default(8000) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
           port: "{{ grafana_port }}",
           proto: tcp,
           rule: allow,
@@ -178,6 +180,15 @@
     # Promtail Vars
     loki_server_url: "http://192.168.0.95:{{ loki_port }}/loki/api/v1/push"
 
+    # Quantum Orchestrator Vars (define paths, model)
+    qo_local_code_path: "/home/pong/Projects/replitwork" # Source code on control node
+    qo_base_dir: "/opt/docker/quantum_orchestrator"
+    qo_deploy_dir: "{{ qo_base_dir }}"
+    qo_app_port: 8000 # Define app port
+    qo_container_port: 8000 # Port inside container
+    qo_llm_model: "mixtral" # Default local model
+    # Add vault lookups here if needed directly, e.g.:
+    # my_vault_var: "{{ vault_my_secret }}"
   roles:
     - common
     - security
@@ -222,6 +233,15 @@
     grafana_compose_file_path: "{{ grafana_compose_dir }}/docker-compose.yml"
     grafana_admin_password: "{{ vault_grafana_admin_password | default('CHANGEME_PLZ') }}" # Use default or vault
 
+    # Quantum Orchestrator Vars (define paths, model)
+    qo_local_code_path: "/home/pong/Projects/replitwork" # Source code on control node
+    qo_base_dir: "/opt/docker/quantum_orchestrator"
+    qo_deploy_dir: "{{ qo_base_dir }}"
+    qo_app_port: 8000 # Define app port
+    qo_container_port: 8000 # Port inside container
+    qo_llm_model: "mixtral" # Default local model
+    # Add vault lookups here if needed directly, e.g.:
+    # my_vault_var: "{{ vault_my_secret }}"
   roles:
     - role: prometheus
       tags: monitoring
@@ -233,6 +253,7 @@
     - role: wizardpro_bootstrap
       tags: wizardpro
 
+    - quantum_orchestrator
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
   hosts: clients # Target only the client host(s)
@@ -240,6 +261,15 @@
   gather_facts: no
   vars:
     placeholder_client_var: true # Example if client needs specific vars
+    # Quantum Orchestrator Vars (define paths, model)
+    qo_local_code_path: "/home/pong/Projects/replitwork" # Source code on control node
+    qo_base_dir: "/opt/docker/quantum_orchestrator"
+    qo_deploy_dir: "{{ qo_base_dir }}"
+    qo_app_port: 8000 # Define app port
+    qo_container_port: 8000 # Port inside container
+    qo_llm_model: "mixtral" # Default local model
+    # Add vault lookups here if needed directly, e.g.:
+    # my_vault_var: "{{ vault_my_secret }}"
   roles:
     # Add any client-specific roles here if needed later
     # - role: some_client_role
