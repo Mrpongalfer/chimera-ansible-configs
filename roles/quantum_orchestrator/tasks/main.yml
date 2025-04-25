@@ -32,17 +32,17 @@
   become: yes
   tags: [quantum_orchestrator, config]
 
-- name: Synchronize application code to server for building
-  ansible.posix.synchronize:
+# --- Start: Replace 'synchronize' task with this 'copy' task ---
+- name: Copy application code to server for building (using Copy module)
+  ansible.builtin.copy:
     src: "{{ qo_local_code_path }}/" # Path on control node (pong)
     dest: "{{ qo_deploy_dir }}/app_code/" # Path on server (aiseed)
-    archive: yes
-    delete: yes # Remove files on dest that are not on src
-    recursive: yes
-    perms: yes # Preserve permissions
-  become: no # Synchronize runs as ansible_user (aiseed)
-  #delegate_to: "{{ inventory_hostname }}" # Ensure it runs targetting the server
+    owner: "{{ docker_run_user | default('root') }}" # Set owner on target
+    group: "{{ docker_run_group | default('root') }}"# Set group on target
+    mode: '0755' # Set reasonable directory/file mode
+  become: yes # Need become to write to /opt/docker/... and set ownership
   tags: [quantum_orchestrator, config, code_sync]
+# --- End: Replaced Task ---
 
 - name: Ensure PostgreSQL data directory permissions (if needed by image)
   ansible.builtin.file:
