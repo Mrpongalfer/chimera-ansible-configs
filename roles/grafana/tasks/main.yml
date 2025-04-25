@@ -1,2 +1,24 @@
 ---
 # tasks file for roles/grafana
+---
+# File: roles/grafana/tasks/main.yml
+# Assumes grafana_* and docker_run_* vars are defined in the calling play
+
+- name: Ensure Grafana directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ docker_run_user | default('root') }}" # Grafana data often needs specific UID/GID (472), adjust if needed
+    group: "{{ docker_run_group | default('root') }}" # Grafana data often needs specific UID/GID (472), adjust if needed
+    mode: '0755'
+  loop:
+    - "{{ grafana_compose_dir }}"
+    - "{{ grafana_config_dir }}" # If mounting configs
+    - "{{ grafana_data_dir }}" # If mapping host data dir (volume mount preferred)
+
+- name: Ensure Grafana Docker Compose project is running
+  community.docker.docker_compose_v2:
+    project_src: "{{ grafana_compose_dir }}" # Assumes compose file is placed here
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}"
+    state: present
+    pull: missing

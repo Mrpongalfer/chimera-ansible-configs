@@ -1,0 +1,26 @@
+# Example tasks for roles/prometheus/tasks/main.yml
+- name: Ensure Prometheus config directory exists on target
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+    mode: '0755'
+  become: true # Requires privilege escalation
+
+- name: Template Prometheus configuration file onto target
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Restart Prometheus Docker Compose # Handler name
+
+- name: Ensure Prometheus Docker Compose project is running
+  community.docker.docker_compose:
+    project_name: prometheus_stack
+    # Template the docker-compose.yml.j2 file to a temporary location or use definition directly
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}"
+    state: present # Ensures services are running, creates if absent, updates if changed
+    pull: true # Pull newer images if available
+  become: true # Docker operations often require root/docker group privileges

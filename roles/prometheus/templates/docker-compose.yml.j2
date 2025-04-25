@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     volumes: # (4 spaces indent)
       # Mount config (read-only)
-      - /etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - "{{ prometheus_config_file_path }}:/etc/prometheus/prometheus.yml:ro" # Use Ansible variable for host path
       # Mount data volume
       - prometheus_data:/prometheus
     command: # (4 spaces indent)

@@ -1,26 +1,35 @@
-# Ansible Managed: Docker Compose for Loki service
-# Location: {{ loki_compose_dir }}/docker-compose.yml
+# File: roles/loki/templates/docker-compose.yml.j2
+version: '3.7'
 
-version: '3.8' # Optional but common
+volumes:
+  loki_data: {}
+
+networks:
+  # Use the existing monitoring network if defined elsewhere, otherwise create
+  monitoring_net:
+    # If Prometheus compose creates this, set external: true
+    # If this is the first/only definition, leave as driver: bridge
+    # Assuming Prometheus defined it, uncomment below:
+    # name: prometheus_monitoring_net # Match the name used by Prometheus compose
+    external: true
 
 services:
   loki:
-    image: grafana/loki:latest # Consider pinning version e.g., grafana/loki:2.9.5
+    image: grafana/loki:latest
     container_name: loki
     restart: unless-stopped
-    ports:
-      # Bind Loki HTTP port (default 3100) - Use variable for port & bind IP
-      - "{{ loki_bind_ip | default('127.0.0.1') }}:{{ loki_port | default(3100) }}:3100"
-      # GRPC port (9096) often doesn't need host exposure unless specific need
-      # - "{{ loki_bind_ip | default('127.0.0.1') }}:9096:9096"
     volumes:
-      - "{{ loki_config_dir }}/loki-config.yml:/etc/loki/config.yml"
-      - "{{ loki_data_dir }}:/loki" # Persistent data volume mapped to /loki inside
-    command: -config.file=/etc/loki/config.yml
-
-volumes:
-  loki_data: # Define named volume used above (can be local path via volume mount too)
-
-# networks: # Define if needed, e.g., connect to Grafana/Prometheus network
-#   monitor-net:
-
+      # Mount the config file templated by Ansible
+      - {{ loki_config_dir }}/loki-config.yml:/etc/loki/local-config.yaml:ro
+      # Mount the data volume (adjust path inside container based on config)
+      - loki_data:/loki
+    ports:
+      - "{{ loki_port | default(3100) }}:{{ loki_port | default(3100) }}" # Expose HTTP port
+      # Optionally expose gRPC port if needed externally:
+      # - "9096:9096"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring_net
+    labels:
+      org.label-schema.group: "monitoring"
+      managed-by: "ansible-chimera-prime"

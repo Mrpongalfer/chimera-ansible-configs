@@ -44,3 +44,11 @@
     state: present
     pull: missing # Change to 'always' if you want latest image on every run
   register: compose_result
+
+- name: Ensure problematic lazygit PPA is removed (if present)
+  ansible.builtin.apt_repository:
+    repo: "ppa:lazygit-team/release"
+    state: absent
+  become: yes
+  when: "'server' in group_names" # Only run this on hosts in the 'server' group
+  ignore_errors: yes # Ignore if the PPA doesn't exist, just ensure it's gone

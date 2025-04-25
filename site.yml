@@ -1,67 +1,80 @@
-# /opt/architect_configs/site.yml
-# Version 1.5 (Automated) - Defining vars directly in plays
-
-# --- Start: REPLACE the existing pre-flight play with this ---
+# File: /home/pong/Projects/chimera-ansible-configs/site.yml
+# Version 1.7 (Chimera Corrected) - Deploy Loki & Grafana
 ---
 - name: Pre-flight APT Cleanup and Validation on Server(s)
   hosts: server
   become: yes
   gather_facts: no # Optimization
   tasks:
+    # --- LazyGit PPA Cleanup ---
     - name: Attempt removal of problematic lazygit PPA via module
       ansible.builtin.apt_repository:
         repo: "ppa:lazygit-team/release"
         state: absent
-      ignore_errors: yes # Continue even if module has issues or PPA not found this way
+      ignore_errors: yes
 
-    - name: Force removal of lazygit PPA sources list file # Direct file deletion
+    - name: Force removal of lazygit PPA sources list file (.list format)
       ansible.builtin.file:
-        # Attempt to remove the specific file for noble release. Adjust if filename differs.
-        path: "/etc/apt/sources.list.d/lazygit-team-ubuntu-release-noble.list"
+        path: "/etc/apt/sources.list.d/lazygit-team-ubuntu-release-{{ ansible_distribution_release | default('noble') }}.list"
         state: absent
-      ignore_errors: yes # Don't fail if file doesn't exist
+      ignore_errors: yes
 
-# --- Start: Corrected Task Snippet ---
+    - name: Force removal of lazygit PPA sources file (.sources format)
+      ansible.builtin.file:
+        path: "/etc/apt/sources.list.d/lazygit-team-ubuntu-release-{{ ansible_distribution_release | default('noble') }}.sources"
+        state: absent
+      ignore_errors: yes
+
+    # --- Docker APT Config Cleanup ---
+    - name: Remove potential conflicting Docker sources file (.list)
+      ansible.builtin.file:
+        path: "/etc/apt/sources.list.d/docker.list"
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove potential conflicting Docker sources file (.sources)
+      ansible.builtin.file:
+        path: "/etc/apt/sources.list.d/docker.sources"
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove potential conflicting Docker keyring file (.gpg)
+      ansible.builtin.file:
+        path: "/etc/apt/keyrings/docker.gpg"
+        state: absent
+      ignore_errors: yes
+
+    - name: Remove potential conflicting Docker keyring file (.asc)
+      ansible.builtin.file:
+        path: "/etc/apt/keyrings/docker.asc"
+        state: absent
+      ignore_errors: yes
+    # --- End Docker Cleanup ---
+
     - name: Clean APT package cache thoroughly
       ansible.builtin.command: apt-get clean -y
-      changed_when: false # Command doesn't reliably report changes
-
-# The 'args:' block that was here previously has been removed.
-# --- End: Corrected Task Snippet ---
+      changed_when: false
 
     - name: Update APT cache explicitly AFTER cleanup to validate
       ansible.builtin.apt:
         update_cache: yes
       register: preflight_apt_update_result
-      retries: 1 # Try once more if it fails
-      delay: 3 # Wait 3s before retry
-      until: preflight_apt_update_result is succeeded # FAIL PLAY if update still broken
+      retries: 1
+      delay: 3
+      until: preflight_apt_update_result is succeeded
 
-# --- End: Enhanced pre-flight play ---
-
-# --- Existing plays follow below ---
-- name: Apply common configuration to all hosts
-  hosts: all
-  # ... rest of the file ...
-
-# --- Existing plays follow below ---
+# --- Main Configuration Play ---
 - name: Apply common configuration to all hosts
   hosts: all
   become: yes
-  gather_facts: yes
-  # ... rest of the existing play ...
-- name: Apply common configuration to all hosts
-  hosts: all
-  become: yes
-  gather_facts: yes
-  # Define ALL variables needed by roles in this play directly here
+  gather_facts: yes # Facts needed here
   vars:
-    # Vars for 'common' role
+    # Common Vars
     system_timezone: "America/Denver"
     admin_users:
       - { username: aiseed, shell: /bin/bash }
       - { username: pong, shell: /bin/bash }
-    common_pkgs: # Renamed variable used in common role tasks
+    common_pkgs:
       - build-essential
       - python3-dev
       - curl
@@ -75,109 +88,88 @@
       - unzip
       - ca-certificates
       - gnupg
-      - python3-pip # Added from base_python_setup playbook
-      - python3-venv # Added from base_python_setup playbook
-    # Vars for 'security' role (global aspects)
+      - python3-pip
+      - python3-venv
+      - chrony
+    # Security Vars
     security_ssh_port: 22
-    security_fail2ban_enabled: false # Explicitly false if skipping
+    security_fail2ban_enabled: false
     fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
-    monitoring_allowed_sources: '192.168.0.0/24' # Used by UFW rules potentially
-    # Vars for 'docker' role
-
-# site.yml (Inside the first play: Pre-flight APT Cleanup...)
-# tasks:
-#   ... (Keep the lazygit cleanup tasks) ...
-
-  # --- Start: ADD this Docker APT Config Cleanup Section ---
-  - name: Remove potential conflicting Docker sources file (.list)
-    ansible.builtin.file:
-      path: "/etc/apt/sources.list.d/docker.list"
-      state: absent
-    ignore_errors: yes # Don't fail if file doesn't exist
-
-  - name: Remove potential conflicting Docker sources file (.sources)
-    ansible.builtin.file:
-      path: "/etc/apt/sources.list.d/docker.sources"
-      state: absent
-    ignore_errors: yes # Don't fail if file doesn't exist
-
-  - name: Remove potential conflicting Docker keyring file (.gpg)
-    ansible.builtin.file:
-      path: "/etc/apt/keyrings/docker.gpg"
-      state: absent
-    ignore_errors: yes # Don't fail if file doesn't exist
-
-  - name: Remove potential conflicting Docker keyring file (.asc)
-    ansible.builtin.file:
-      path: "/etc/apt/keyrings/docker.asc"
-      state: absent
-    ignore_errors: yes # Don't fail if file doesn't exist
-  # --- End: Docker APT Config Cleanup Section ---
-
-#   ... (Keep the 'apt-get clean' and 'Update APT cache explicitly' tasks) ...
-
-
-
+    monitoring_allowed_sources: '192.168.0.0/24'
+    # UFW Rules (Ensure Grafana port 3000 is included for server)
+    server_ufw_allow_rules:
+      - { comment: "Allow SSH from Client", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.96' }
+      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
+      - { comment: "Allow Prometheus from Monitoring Subnet", port: '{{ prometheus_port_override | default(9091) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
+      - { comment: "Allow Loki from Monitoring Subnet", port: '{{ loki_port | default(3100) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
+      - { comment: "Allow Grafana from Monitoring Subnet", port: '{{ grafana_port | default(3000) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' } # ADDED Grafana
+    client_ufw_allow_rules:
+      - { comment: "Allow SSH from Server", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.95' }
+      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
+    # Docker Vars
     docker_users_to_group:
       - aiseed
       - pong
-    # Vars for 'node_exporter' role
-    node_exporter_port: 9100 # Also needed for prometheus scrape config
-    # Vars for 'promtail' role
-    loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push" # Assumes Loki runs on server
-    # Define specific UFW rules here if not using group_vars files at all
-    server_ufw_allow_rules: # Needed by security role when run on server host
-      - { comment: "Allow SSH from Client 'pong@pop-os'", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.96' }
-      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
-      - { comment: "Allow Prometheus from Client Subnet", port: '{{ prometheus_port_override | default(9091) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
-      # Add other server rules here (e.g., Loki 3100)
-      - { comment: "Allow Loki from Client Subnet", port: 3100, proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
-    client_ufw_allow_rules: # Needed by security role when run on client host
-      - { comment: "Allow SSH from Server 'aiseed@thosedataguys-s'", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.95' }
-      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
-      # Add other client rules here if needed
+    # Node Exporter Vars
+    node_exporter_port: 9100
+    # Promtail Vars
+    loki_server_url: "http://192.168.0.95:{{ loki_port | default(3100) }}/loki/api/v1/push" # Reference Loki port var
+
   roles:
-    # Ensure roles/common/tasks/main.yml uses 'common_pkgs' now
     - common
-    - security # Uses security_*, fail2ban_*, server/client_ufw_allow_rules, monitoring_allowed_sources
-    - docker # Uses docker_users_to_group
-    - node_exporter # Uses node_exporter_port indirectly via Prometheus config
-    - promtail # Uses loki_server_url
+    - security
+    - docker
+    - node_exporter
+    - promtail
 
 # --- Server-Specific Configuration ---
 - name: Configure server-specific settings
-  hosts: server # TARGETS ONLY SERVER GROUP
+  hosts: server
   become: yes
   gather_facts: no
-  # Define ALL variables needed by server roles HERE
   vars:
-    prometheus_port_override: 9091 # Use non-default port
-    prometheus_config_dir: "/opt/docker/prometheus/config"
-    prometheus_data_dir: "/opt/docker/prometheus/data"
-    prometheus_compose_dir: "/opt/docker/prometheus"
-    docker_run_user: "aiseed" # User for docker artifacts on server
-    docker_run_group: "aiseed" # Group for docker artifacts on server
-    prometheus_template_name: "docker-compose.yml.j2"
-    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
-    prometheus_config_template: "prometheus.yml.j2"
-    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
-    # Loki vars if needed by loki role
-    loki_config_dir: "/opt/docker/loki/config" # Example
-    loki_data_dir: "/opt/docker/loki/data" # Example
-    loki_port: 3100 # Example
-    loki_compose_file_path: "{{ prometheus_compose_dir | replace('prometheus','loki') }}/docker-compose.yml" # Example path derivation
-    # Grafana vars if needed by grafana role
+    # Prometheus Vars
+    prometheus_port_override: 9091
+    prometheus_base_dir: "/opt/docker/prometheus" # Base directory
+    prometheus_config_dir: "{{ prometheus_base_dir }}/config"
+    prometheus_data_dir: "{{ prometheus_base_dir }}/data"
+    prometheus_compose_dir: "{{ prometheus_base_dir }}" # Place compose file in base dir
+    prometheus_template_name: "docker-compose.yml.j2" # Source template name
+    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml" # Destination compose file
+    prometheus_config_template: "prometheus.yml.j2" # Source template name
+    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml" # Destination config file
+    # Loki Vars
+    loki_port: 3100
+    loki_base_dir: "/opt/docker/loki" # Base directory
+    loki_config_dir: "{{ loki_base_dir }}/config"
+    loki_data_dir: "{{ loki_base_dir }}/data" # Used by loki config, ensure exists
+    loki_compose_dir: "{{ loki_base_dir }}"
+    loki_compose_file_path: "{{ loki_compose_dir }}/docker-compose.yml"
+    loki_config_template: "loki-config.yml.j2" # Source template name
+    loki_config_file_path: "{{ loki_config_dir }}/loki-config.yml" # Destination config file
+    # Grafana Vars
+    grafana_port: 3000
+    grafana_base_dir: "/opt/docker/grafana" # Base directory
+    grafana_config_dir: "{{ grafana_base_dir }}/config" # If mounting grafana.ini etc.
+    grafana_data_dir: "{{ grafana_base_dir }}/data" # Map to /var/lib/grafana if needed, or use Docker volume
+    grafana_compose_dir: "{{ grafana_base_dir }}"
+    grafana_compose_file_path: "{{ grafana_compose_dir }}/docker-compose.yml"
+    grafana_admin_password: "{{ vault_grafana_admin_password | default('ChangeMePlease!') }}" # Use Vault ideally!
+    # Docker Run User (if needed consistently across server roles)
+    docker_run_user: "aiseed"
+    docker_run_group: "aiseed"
+
   roles:
-    - prometheus # Uses prometheus_*, docker_run_* vars
-    - loki # Uses loki_* vars
+    - prometheus
+    - loki
+    - grafana # ADDED Grafana role
 
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
-  hosts: clients # TARGETS ONLY CLIENT GROUP
+  hosts: clients
   become: yes
   gather_facts: no
-  # Define client-specific variables here if needed
   vars:
     placeholder_client_var: true
   roles:
-    - prompt_debug # Keeping placeholder from user provided file
+    - prompt_debug

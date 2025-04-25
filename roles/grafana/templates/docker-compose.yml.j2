@@ -1,0 +1,36 @@
+# File: roles/grafana/templates/docker-compose.yml.j2
+version: '3.7'
+
+volumes:
+  grafana_data: {}
+
+networks:
+  monitoring_net:
+    # Assuming Prometheus defined it, uncomment below:
+    # name: prometheus_monitoring_net # Match the name used by Prometheus compose
+    external: true
+
+services:
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      # Mount the persistent data volume for dashboards, plugins, etc.
+      - grafana_data:/var/lib/grafana
+      # Optionally mount custom grafana.ini or provisioning configs
+      # - {{ grafana_config_dir }}/grafana.ini:/etc/grafana/grafana.ini
+      # - {{ grafana_config_dir }}/provisioning:/etc/grafana/provisioning
+    ports:
+      - "{{ grafana_port | default(3000) }}:3000"
+    environment:
+      # Set initial admin user password (change 'YourSecurePassword!' below)
+      - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password | default('123d234f') }}
+      # Optionally configure other Grafana settings via env vars
+      # - GF_SERVER_ROOT_URL=http://your-grafana-domain.com
+      # - GF_AUTH_ANONYMOUS_ENABLED=true
+    networks:
+      - monitoring_net
+    labels:
+      org.label-schema.group: "monitoring"
+      managed-by: "ansible-chimera-prime"
