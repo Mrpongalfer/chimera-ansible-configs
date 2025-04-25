@@ -28,8 +28,12 @@ services:
       # Optionally expose gRPC port if needed externally:
       # - "9096:9096"
     command: -config.file=/etc/loki/local-config.yaml
+    # --- Start: Corrected Loki Network Snippet ---
     networks:
-      - monitoring_net
+      monitoring_net: # Internal alias for this compose file
+        name: prometheus_stack_monitoring_net # ACTUAL name of the network created by Prometheus
+        external: true
+    # --- End: Corrected Loki Network Snippet ---
     labels:
       org.label-schema.group: "monitoring"
       managed-by: "ansible-chimera-prime"

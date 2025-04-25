@@ -29,8 +29,12 @@ services:
       # Optionally configure other Grafana settings via env vars
       # - GF_SERVER_ROOT_URL=http://your-grafana-domain.com
       # - GF_AUTH_ANONYMOUS_ENABLED=true
+      # --- Start: Corrected Grafana Network Snippet ---
     networks:
-      - monitoring_net
+        monitoring_net: # Internal alias for this compose file
+          name: prometheus_stack_monitoring_net # ACTUAL name of the network created by Prometheus
+          external: true
+      # --- End: Corrected Grafana Network Snippet ---
     labels:
       org.label-schema.group: "monitoring"
       managed-by: "ansible-chimera-prime"
