@@ -8,7 +8,7 @@
     state: directory
     owner: root # Let root create dirs initially
     group: root
-    mode: '0755'
+    mode: "0755"
   loop:
     - "{{ prometheus_compose_dir }}"
     - "{{ prometheus_config_dir }}"
@@ -23,7 +23,7 @@
     dest: "{{ prometheus_config_file_path }}"
     owner: root # Config needs to be readable by container user
     group: root # Group read often sufficient
-    mode: '0644'
+    mode: "0644"
   become: true
   # notify: Restart Prometheus container # Add if handler needed for config changes
   tags: [prometheus, config]
@@ -43,7 +43,7 @@
     dest: "{{ prometheus_compose_file_path }}"
     owner: root # Root manages the compose definition
     group: root
-    mode: '0644'
+    mode: "0644"
   become: true
   # notify: Restart Prometheus container # Add if handler needed for compose changes
   tags: [prometheus, config]
@@ -55,7 +55,7 @@
     state: directory
     owner: "65534" # UID for nobody (adjust if Prometheus container uses different UID)
     group: "65534" # GID for nogroup (adjust if Prometheus container uses different GID)
-    mode: '0775' # Writable by owner/group
+    mode: "0775" # Writable by owner/group
   become: true
   tags: [prometheus, config, permissions]
 # --- END VOLUME PERMISSION FIX ---

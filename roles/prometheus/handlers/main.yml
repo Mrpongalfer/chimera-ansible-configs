@@ -5,7 +5,7 @@
   community.docker.docker_compose_v2:
     project_name: prometheus_stack # Must match the project_name used in the task
     definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Read template definition relative to this handler file
-    state: present     # Ensure services are running per the definition
+    state: present # Ensure services are running per the definition
     # recreate: 'always' # Use if state:present isn't forceful enough for config file changes
   become: yes
 
