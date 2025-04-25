@@ -1,6 +1,5 @@
 # File: roles/loki/tasks/main.yml
 # Deploys Loki via Docker Compose using variables defined in the calling play.
-# Note: Removed initial set_fact task as vars are set in site.yml
 
 - name: Ensure Loki directories exist
   ansible.builtin.file:

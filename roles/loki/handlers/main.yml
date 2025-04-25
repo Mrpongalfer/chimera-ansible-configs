@@ -1,2 +1,11 @@
 ---
 # handlers file for roles/loki
+---
+# File: roles/loki/handlers/main.yml
+- name: Restart Loki container
+  # This handler is triggered when Loki config or compose files change.
+  community.docker.docker_compose_v2:
+    project_src: "{{ loki_compose_dir }}" # Use var for directory containing docker-compose.yml
+    state: present # Ensure services defined in compose are running
+    restarted: true # Force recreation/restart of services
+  become: yes # Docker operations usually require privileges
