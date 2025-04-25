@@ -1,21 +1,46 @@
 # /opt/architect_configs/site.yml
 # Version 1.5 (Automated) - Defining vars directly in plays
 
-# --- Start: Add this new play at the TOP of site.yml ---
+# --- Start: REPLACE the existing pre-flight play with this ---
 ---
-- name: Pre-flight APT Cleanup on Server(s)
+- name: Pre-flight APT Cleanup and Validation on Server(s)
   hosts: server
   become: yes
-  gather_facts: no # Optimization: No need for facts here
+  gather_facts: no # Optimization
   tasks:
-    - name: Ensure problematic lazygit PPA is removed
+    - name: Attempt removal of problematic lazygit PPA via module
       ansible.builtin.apt_repository:
         repo: "ppa:lazygit-team/release"
         state: absent
-        filename: 'lazygit-team-ubuntu-release-noble' # Optional: Be more specific if you know the filename in sources.list.d
-      ignore_errors: yes # Don't fail if it's already absent
+      ignore_errors: yes # Continue even if module has issues or PPA not found this way
 
-# --- End: New play ---
+    - name: Force removal of lazygit PPA sources list file # Direct file deletion
+      ansible.builtin.file:
+        # Attempt to remove the specific file for noble release. Adjust if filename differs.
+        path: "/etc/apt/sources.list.d/lazygit-team-ubuntu-release-noble.list"
+        state: absent
+      ignore_errors: yes # Don't fail if file doesn't exist
+
+    - name: Clean APT package cache thoroughly
+      ansible.builtin.command: apt-get clean -y
+      changed_when: false # Command doesn't reliably report changes
+      args:
+        warn: false # Suppress warnings about running apt-get via command
+
+    - name: Update APT cache explicitly AFTER cleanup to validate
+      ansible.builtin.apt:
+        update_cache: yes
+      register: preflight_apt_update_result
+      retries: 1 # Try once more if it fails
+      delay: 3 # Wait 3s before retry
+      until: preflight_apt_update_result is succeeded # FAIL PLAY if update still broken
+
+# --- End: Enhanced pre-flight play ---
+
+# --- Existing plays follow below ---
+- name: Apply common configuration to all hosts
+  hosts: all
+  # ... rest of the file ...
 
 # --- Existing plays follow below ---
 - name: Apply common configuration to all hosts
