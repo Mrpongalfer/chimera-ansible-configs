@@ -24,7 +24,7 @@
     state: directory
     owner: "{{ docker_run_user | default('root') }}" # User defined in site.yml server play
     group: "{{ docker_run_group | default('root') }}" # Group defined in site.yml server play
-    mode: '0755'
+    mode: "0755"
   loop:
     - "{{ qo_deploy_dir }}"
     - "{{ qo_deploy_dir }}/app_code" # Directory to sync source code to for build
@@ -41,7 +41,7 @@
     recursive: yes
     perms: yes # Preserve permissions
   become: no # Synchronize runs as ansible_user (aiseed)
-  delegate_to: "{{ inventory_hostname }}" # Ensure it runs targetting the server
+  #delegate_to: "{{ inventory_hostname }}" # Ensure it runs targetting the server
   tags: [quantum_orchestrator, config, code_sync]
 
 - name: Ensure PostgreSQL data directory permissions (if needed by image)
@@ -50,7 +50,7 @@
     state: directory
     owner: "999" # Default postgres user ID in official image
     group: "999" # Default postgres group ID in official image
-    mode: '0700' # Postgres requires strict permissions
+    mode: "0700" # Postgres requires strict permissions
   become: yes
   tags: [quantum_orchestrator, config, permissions]
 
@@ -60,7 +60,7 @@
     state: directory
     owner: "101" # Common default Ollama UID - VERIFY IF NEEDED
     group: "102" # Common default Ollama GID - VERIFY IF NEEDED
-    mode: '0755'
+    mode: "0755"
   become: yes
   tags: [quantum_orchestrator, config, permissions]
 
@@ -70,7 +70,7 @@
     dest: "{{ qo_deploy_dir }}/docker-compose.yml"
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: '0644'
+    mode: "0644"
   become: yes
   notify: Restart Quantum Orchestrator stack
   tags: [quantum_orchestrator, config]
