@@ -1,18 +1,6 @@
-# /opt/architect_configs/roles/loki/tasks/main.yml
-# Tasks to deploy Loki via Docker Compose
-- name: Set Loki configuration facts
-  ansible.builtin.set_fact:
-    loki_base_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}"
-    loki_compose_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}"
-    loki_config_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}/config"
-    loki_data_dir: "{{ loki_base_dir_override | default('/opt/docker/loki') }}/data" # Host path for volume mount
-    loki_port: "{{ loki_port_override | default(3100) }}"
-    loki_bind_ip: "{{ loki_bind_ip_override | default('127.0.0.1') }}" # Default: Listen only on localhost
-  tags: [loki, config]
-
----
 # File: roles/loki/tasks/main.yml
-# Assumes loki_* and docker_run_* vars are defined in the calling play
+# Deploys Loki via Docker Compose using variables defined in the calling play.
+# Note: Removed initial set_fact task as vars are set in site.yml
 
 - name: Ensure Loki directories exist
   ansible.builtin.file:
@@ -24,21 +12,24 @@
   loop:
     - "{{ loki_compose_dir }}"
     - "{{ loki_config_dir }}"
-    - "{{ loki_data_dir }}" # Ensure data dir exists on host if mapping needed
+    - "{{ loki_data_dir }}"
+  tags: [loki, config]
 
 - name: Deploy Loki configuration file (loki-config.yml)
   ansible.builtin.template:
     src: loki-config.yml.j2
-    dest: "{{ loki_config_dir }}/loki-config.yml"
+    dest: "{{ loki_config_file_path }}" # Use precise var from site.yml
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
-  notify: Restart Loki container # Needs handler
+  notify: Restart Loki container # Assumes handler 'Restart Loki container' exists
+  tags: [loki, config]
 
 - name: Ensure Loki Docker Compose project is running
   community.docker.docker_compose_v2:
-    project_src: "{{ loki_compose_dir }}" # Assumes compose file is placed here
-    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template directly
+    project_src: "{{ loki_compose_dir }}" # Dir where compose file is placed
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template definition
     state: present
     pull: missing
-  notify: Restart Loki container # Consider different handler if needed
+  notify: Restart Loki container # Assumes handler 'Restart Loki container' exists
+  tags: [loki, docker, run]
