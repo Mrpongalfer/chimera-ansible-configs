@@ -1,24 +1,23 @@
----
-# tasks file for roles/grafana
----
 # File: roles/grafana/tasks/main.yml
-# Assumes grafana_* and docker_run_* vars are defined in the calling play
+# Deploys Grafana via Docker Compose using variables defined in the calling play.
 
 - name: Ensure Grafana directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ docker_run_user | default('root') }}" # Grafana data often needs specific UID/GID (472), adjust if needed
-    group: "{{ docker_run_group | default('root') }}" # Grafana data often needs specific UID/GID (472), adjust if needed
+    owner: "{{ docker_run_user | default('root') }}" # Note: Grafana container runs as UID/GID 472. Adjust if mounting host data dir.
+    group: "{{ docker_run_group | default('root') }}" # Note: Grafana container runs as UID/GID 472. Adjust if mounting host data dir.
     mode: '0755'
   loop:
-    - "{{ grafana_compose_dir }}"
-    - "{{ grafana_config_dir }}" # If mounting configs
-    - "{{ grafana_data_dir }}" # If mapping host data dir (volume mount preferred)
+    - "{{ grafana_compose_dir }}" # Usually needed for project context or placing compose file
+    - "{{ grafana_config_dir }}" # Needed if mounting grafana.ini or provisioning files later
+    - "{{ grafana_data_dir }}"   # Needed only if mounting host data dir directly (Docker volume is preferred)
+  tags: [grafana, config]
 
 - name: Ensure Grafana Docker Compose project is running
   community.docker.docker_compose_v2:
-    project_src: "{{ grafana_compose_dir }}" # Assumes compose file is placed here
-    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}"
+    project_src: "{{ grafana_compose_dir }}" # Provides context if compose file uses relative paths
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template definition directly
     state: present
-    pull: missing
+    pull: missing # Change to 'always' to force image update checks
+  tags: [grafana, docker, run]
