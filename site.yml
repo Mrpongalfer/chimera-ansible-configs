@@ -83,6 +83,41 @@
     fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
     monitoring_allowed_sources: '192.168.0.0/24' # Used by UFW rules potentially
     # Vars for 'docker' role
+
+# site.yml (Inside the first play: Pre-flight APT Cleanup...)
+# tasks:
+#   ... (Keep the lazygit cleanup tasks) ...
+
+  # --- Start: ADD this Docker APT Config Cleanup Section ---
+  - name: Remove potential conflicting Docker sources file (.list)
+    ansible.builtin.file:
+      path: "/etc/apt/sources.list.d/docker.list"
+      state: absent
+    ignore_errors: yes # Don't fail if file doesn't exist
+
+  - name: Remove potential conflicting Docker sources file (.sources)
+    ansible.builtin.file:
+      path: "/etc/apt/sources.list.d/docker.sources"
+      state: absent
+    ignore_errors: yes # Don't fail if file doesn't exist
+
+  - name: Remove potential conflicting Docker keyring file (.gpg)
+    ansible.builtin.file:
+      path: "/etc/apt/keyrings/docker.gpg"
+      state: absent
+    ignore_errors: yes # Don't fail if file doesn't exist
+
+  - name: Remove potential conflicting Docker keyring file (.asc)
+    ansible.builtin.file:
+      path: "/etc/apt/keyrings/docker.asc"
+      state: absent
+    ignore_errors: yes # Don't fail if file doesn't exist
+  # --- End: Docker APT Config Cleanup Section ---
+
+#   ... (Keep the 'apt-get clean' and 'Update APT cache explicitly' tasks) ...
+
+
+
     docker_users_to_group:
       - aiseed
       - pong
