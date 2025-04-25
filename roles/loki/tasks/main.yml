@@ -24,11 +24,13 @@
   notify: Restart Loki container # Assumes handler 'Restart Loki container' exists
   tags: [loki, config]
 
+# --- Start: Corrected Loki Task Snippet ---
 - name: Ensure Loki Docker Compose project is running
   community.docker.docker_compose_v2:
-    project_src: "{{ loki_compose_dir }}" # Dir where compose file is placed
+    # project_src: "{{ loki_compose_dir }}" # REMOVED - Mutually exclusive with definition
     definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template definition
     state: present
     pull: missing
-  notify: Restart Loki container # Assumes handler 'Restart Loki container' exists
+  notify: Restart Loki container # Assumes handler exists
   tags: [loki, docker, run]
+# --- End: Corrected Loki Task Snippet ---
