@@ -21,11 +21,13 @@
         state: absent
       ignore_errors: yes # Don't fail if file doesn't exist
 
+# --- Start: Corrected Task Snippet ---
     - name: Clean APT package cache thoroughly
       ansible.builtin.command: apt-get clean -y
       changed_when: false # Command doesn't reliably report changes
-      args:
-        warn: false # Suppress warnings about running apt-get via command
+
+# The 'args:' block that was here previously has been removed.
+# --- End: Corrected Task Snippet ---
 
     - name: Update APT cache explicitly AFTER cleanup to validate
       ansible.builtin.apt:
