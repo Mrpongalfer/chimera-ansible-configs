@@ -8,7 +8,7 @@
     state: directory
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: '0755'
+    mode: "0755"
   loop:
     - "{{ prometheus_compose_dir }}"
     - "{{ prometheus_config_dir }}"
@@ -20,7 +20,7 @@
     dest: "{{ prometheus_config_file_path }}"
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: '0644'
+    mode: "0644"
   notify: Restart Prometheus container
 
 - name: Ensure Docker Compose V2 is available
@@ -35,15 +35,21 @@
     dest: "{{ prometheus_compose_file_path }}"
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: '0644'
+    mode: "0644"
   notify: Start Prometheus container # Consider changing to 'Restart Prometheus container' for consistency if config changes also require compose restart
 
+# --- Start: Corrected Prometheus Task Snippet ---
 - name: Ensure Prometheus container is running via Docker Compose
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}"
+    # project_src: "{{ prometheus_compose_dir }}" # Switching from project_src
+    project_name: prometheus_stack # ADDED project_name
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # ADDED definition lookup
     state: present
-    pull: missing # Change to 'always' if you want latest image on every run
+    pull: missing
   register: compose_result
+  # Note: Consider adding 'notify:' if config changes should trigger handler
+  tags: [prometheus, docker, run]
+# --- End: Corrected Prometheus Task Snippet ---
 
 - name: Ensure problematic lazygit PPA is removed (if present)
   ansible.builtin.apt_repository:

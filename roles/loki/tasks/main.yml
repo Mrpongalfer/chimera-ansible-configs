@@ -7,7 +7,7 @@
     state: directory
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: '0755'
+    mode: "0755"
   loop:
     - "{{ loki_compose_dir }}"
     - "{{ loki_config_dir }}"
@@ -20,14 +20,14 @@
     dest: "{{ loki_config_file_path }}" # Use precise var from site.yml
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: '0644'
+    mode: "0644"
   notify: Restart Loki container # Assumes handler 'Restart Loki container' exists
   tags: [loki, config]
 
 # --- Start: Corrected Loki Task Snippet ---
 - name: Ensure Loki Docker Compose project is running
   community.docker.docker_compose_v2:
-    # project_src: "{{ loki_compose_dir }}" # REMOVED - Mutually exclusive with definition
+    project_name: loki_stack # ADDED project_name
     definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template definition
     state: present
     pull: missing
