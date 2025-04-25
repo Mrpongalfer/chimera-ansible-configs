@@ -1,76 +1,12 @@
-# File: /home/pong/Projects/chimera-ansible-configs/site.yml
-# Version: 1.8 FINAL - Deploy Prometheus, Loki, Grafana
-
+# /opt/architect_configs/site.yml
+# Version 1.6 (Automated) - Corrected prometheus var name, vars in plays
 ---
-- name: Pre-flight APT Cleanup and Validation on Server(s)
-  hosts: server
-  become: yes
-  gather_facts: no # Optimization
-  tasks:
-    # --- LazyGit PPA Cleanup ---
-    - name: Attempt removal of problematic lazygit PPA via module
-      ansible.builtin.apt_repository:
-        repo: "ppa:lazygit-team/release"
-        state: absent
-      ignore_errors: yes
-
-    - name: Force removal of lazygit PPA sources list file (.list format)
-      ansible.builtin.file:
-        path: "/etc/apt/sources.list.d/lazygit-team-ubuntu-release-{{ ansible_distribution_release | default('noble') }}.list"
-        state: absent
-      ignore_errors: yes
-
-    - name: Force removal of lazygit PPA sources file (.sources format)
-      ansible.builtin.file:
-        path: "/etc/apt/sources.list.d/lazygit-team-ubuntu-release-{{ ansible_distribution_release | default('noble') }}.sources"
-        state: absent
-      ignore_errors: yes
-
-    # --- Docker APT Config Cleanup ---
-    - name: Remove potential conflicting Docker sources file (.list)
-      ansible.builtin.file:
-        path: "/etc/apt/sources.list.d/docker.list"
-        state: absent
-      ignore_errors: yes
-
-    - name: Remove potential conflicting Docker sources file (.sources)
-      ansible.builtin.file:
-        path: "/etc/apt/sources.list.d/docker.sources"
-        state: absent
-      ignore_errors: yes
-
-    - name: Remove potential conflicting Docker keyring file (.gpg)
-      ansible.builtin.file:
-        path: "/etc/apt/keyrings/docker.gpg"
-        state: absent
-      ignore_errors: yes
-
-    - name: Remove potential conflicting Docker keyring file (.asc)
-      ansible.builtin.file:
-        path: "/etc/apt/keyrings/docker.asc"
-        state: absent
-      ignore_errors: yes
-    # --- End Docker Cleanup ---
-
-    - name: Clean APT package cache thoroughly
-      ansible.builtin.command: apt-get clean -y
-      changed_when: false
-
-    - name: Update APT cache explicitly AFTER cleanup to validate
-      ansible.builtin.apt:
-        update_cache: yes
-      register: preflight_apt_update_result
-      retries: 1
-      delay: 3
-      until: preflight_apt_update_result is succeeded
-
-# --- Main Configuration Play ---
 - name: Apply common configuration to all hosts
   hosts: all
   become: yes
-  gather_facts: yes # Facts needed here
+  gather_facts: yes
   vars:
-    # Common Vars
+    # Define common vars needed by roles in this play directly here
     system_timezone: "America/Denver"
     admin_users:
       - { username: aiseed, shell: /bin/bash }
@@ -91,73 +27,25 @@
       - gnupg
       - python3-pip
       - python3-venv
-      - chrony # Ensure NTP client is listed if managed by common role
-    # Security Vars
     security_ssh_port: 22
-    security_fail2ban_enabled: false # Explicitly false if skipping fail2ban tasks
-    fail2ban_ignoreip: "127.0.0.1/8 ::1 192.168.0.0/24"
-    monitoring_allowed_sources: "192.168.0.0/24" # Used by UFW rules
-    # Define UFW rules directly here
-    server_ufw_allow_rules: # Needed by security role when run on server host
-      - {
-          comment: "Allow SSH from Client",
-          port: "{{ security_ssh_port | default(22) }}",
-          proto: tcp,
-          rule: allow,
-          src: "192.168.0.96",
-        }
-      - {
-          comment: "Allow SSH from Localhost",
-          port: "{{ security_ssh_port | default(22) }}",
-          proto: tcp,
-          rule: allow,
-          src: "127.0.0.1",
-        }
-      - {
-          comment: "Allow Prometheus from Monitoring Subnet",
-          port: "{{ prometheus_port_override | default(9091) }}",
-          proto: tcp,
-          rule: allow,
-          src: "{{ monitoring_allowed_sources }}",
-        } # Uses override var
-      - {
-          comment: "Allow Loki from Monitoring Subnet",
-          port: "{{ loki_port | default(3100) }}",
-          proto: tcp,
-          rule: allow,
-          src: "{{ monitoring_allowed_sources }}",
-        }
-      - {
-          comment: "Allow Grafana from Monitoring Subnet",
-          port: "{{ grafana_port | default(3000) }}",
-          proto: tcp,
-          rule: allow,
-          src: "{{ monitoring_allowed_sources }}",
-        } # ADDED Grafana Port
-    client_ufw_allow_rules: # Needed by security role when run on client host
-      - {
-          comment: "Allow SSH from Server",
-          port: "{{ security_ssh_port | default(22) }}",
-          proto: tcp,
-          rule: allow,
-          src: "192.168.0.95",
-        }
-      - {
-          comment: "Allow SSH from Localhost",
-          port: "{{ security_ssh_port | default(22) }}",
-          proto: tcp,
-          rule: allow,
-          src: "127.0.0.1",
-        }
-    # Docker Vars
+    security_fail2ban_enabled: false
+    fail2ban_ignoreip: '127.0.0.1/8 ::1 192.168.0.0/24'
     docker_users_to_group:
       - aiseed
       - pong
-    # Node Exporter Vars
+    monitoring_allowed_sources: '192.168.0.0/24'
     node_exporter_port: 9100
-    # Promtail Vars
-    loki_server_url: "http://192.168.0.95:{{ loki_port | default(3100) }}/loki/api/v1/push" # Reference Loki port var
-
+    loki_server_url: "http://192.168.0.95:3100/loki/api/v1/push"
+    prometheus_port: 9091 # <<< Define standard port var globally if needed by multiple plays/roles
+    server_ufw_allow_rules:
+      - { comment: "Allow SSH from Client 'pong@pop-os'", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.96' }
+      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
+      # Use correct var name 'prometheus_port' here too:
+      - { comment: "Allow Prometheus from Client Subnet", port: '{{ prometheus_port | default(9091) }}', proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
+      - { comment: "Allow Loki from Client Subnet", port: 3100, proto: tcp, rule: allow, src: '{{ monitoring_allowed_sources }}' }
+    client_ufw_allow_rules:
+      - { comment: "Allow SSH from Server 'aiseed@thosedataguys-s'", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '192.168.0.95' }
+      - { comment: "Allow SSH from Localhost", port: '{{ security_ssh_port | default(22) }}', proto: tcp, rule: allow, src: '127.0.0.1' }
   roles:
     - common
     - security
@@ -171,41 +59,26 @@
   become: yes
   gather_facts: no
   vars:
-    # Prometheus Vars
-    prometheus_port_override: 9091
-    prometheus_base_dir: "/opt/docker/prometheus"
-    prometheus_config_dir: "{{ prometheus_base_dir }}/config"
-    prometheus_data_dir: "{{ prometheus_base_dir }}/data"
-    prometheus_compose_dir: "{{ prometheus_base_dir }}"
-    prometheus_template_name: "docker-compose.yml.j2" # Source template filename
-    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml" # Dest compose filepath
-    prometheus_config_template: "prometheus.yml.j2" # Source template filename
-    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml" # Dest config filepath
-    # Loki Vars
-    loki_port: 3100
-    loki_base_dir: "/opt/docker/loki"
-    loki_config_dir: "{{ loki_base_dir }}/config"
-    loki_data_dir: "{{ loki_base_dir }}/data"
-    loki_compose_dir: "{{ loki_base_dir }}"
-    loki_compose_file_path: "{{ loki_compose_dir }}/docker-compose.yml"
-    loki_config_template: "loki-config.yml.j2" # Source template filename
-    loki_config_file_path: "{{ loki_config_dir }}/loki-config.yml" # Dest config filepath
-    # Grafana Vars
-    grafana_port: 3000
-    grafana_base_dir: "/opt/docker/grafana"
-    grafana_config_dir: "{{ grafana_base_dir }}/config"
-    grafana_data_dir: "{{ grafana_base_dir }}/data"
-    grafana_compose_dir: "{{ grafana_base_dir }}"
-    grafana_compose_file_path: "{{ grafana_compose_dir }}/docker-compose.yml"
-    grafana_admin_password: "{{ vault_grafana_admin_password | default('ChangeMePlease!') }}" # Use Vault ideally!
-    # Docker Run User (Consistent for server roles)
+    # Define ALL variables needed by server roles HERE
+    prometheus_port: 9091 # <<< CORRECTED NAME HERE
+    prometheus_config_dir: "/opt/docker/prometheus/config"
+    prometheus_data_dir: "/opt/docker/prometheus/data"
+    prometheus_compose_dir: "/opt/docker/prometheus"
     docker_run_user: "aiseed"
     docker_run_group: "aiseed"
-
+    prometheus_template_name: "docker-compose.yml.j2"
+    prometheus_compose_file_path: "{{ prometheus_compose_dir }}/docker-compose.yml"
+    prometheus_config_template: "prometheus.yml.j2"
+    prometheus_config_file_path: "{{ prometheus_config_dir }}/prometheus.yml"
+    # Loki vars
+    loki_config_dir: "/opt/docker/loki/config"
+    loki_data_dir: "/opt/docker/loki/data"
+    loki_port: 3100
+    loki_compose_file_path: "{{ prometheus_compose_dir | replace('prometheus','loki') }}/docker-compose.yml"
   roles:
     - prometheus
     - loki
-    - grafana # Grafana role added
+    # - grafana
 
 # --- Client-Specific Configuration ---
 - name: Configure client-specific settings
