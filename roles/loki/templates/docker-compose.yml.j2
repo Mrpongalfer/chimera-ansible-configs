@@ -1,16 +1,13 @@
 # File: roles/loki/templates/docker-compose.yml.j2
-version: '3.7'
+# Cleaned version for external network syntax
 
 volumes:
   loki_data: {}
 
 networks:
-  # Use the existing monitoring network if defined elsewhere, otherwise create
-  monitoring_net:
-    # If Prometheus compose creates this, set external: true
-    # If this is the first/only definition, leave as driver: bridge
-    # Assuming Prometheus defined it, uncomment below:
-    # name: prometheus_monitoring_net # Match the name used by Prometheus compose
+  # Define the existing external network created by Prometheus
+  monitoring_net: # Alias used by services below
+    name: prometheus_stack_monitoring_net # Actual Docker network name
     external: true
 
 services:
@@ -19,21 +16,14 @@ services:
     container_name: loki
     restart: unless-stopped
     volumes:
-      # Mount the config file templated by Ansible
-      - {{ loki_config_dir }}/loki-config.yml:/etc/loki/local-config.yaml:ro
-      # Mount the data volume (adjust path inside container based on config)
+      - "{{ loki_config_file_path }}:/etc/loki/local-config.yaml:ro" # Use correct host path var
       - loki_data:/loki
     ports:
-      - "{{ loki_port | default(3100) }}:{{ loki_port | default(3100) }}" # Expose HTTP port
-      # Optionally expose gRPC port if needed externally:
-      # - "9096:9096"
+      - "{{ loki_port | default(3100) }}:{{ loki_port | default(3100) }}"
     command: -config.file=/etc/loki/local-config.yaml
-    # --- Start: Corrected Loki Network Snippet ---
     networks:
-      monitoring_net: # Internal alias for this compose file
-        name: prometheus_stack_monitoring_net # ACTUAL name of the network created by Prometheus
-        external: true
-    # --- End: Corrected Loki Network Snippet ---
+      # Connect service to the network defined above
+      - monitoring_net # Use the alias defined under top-level 'networks:'
     labels:
       org.label-schema.group: "monitoring"
       managed-by: "ansible-chimera-prime"
