@@ -1,0 +1,20 @@
+# Content for roles/wizardpro_bootstrap/files/requirements.txt
+
+# Core Orchestrator Dependencies
+python-dotenv>=1.0.0
+requests>=2.25.0
+psycopg2-binary>=2.9.0
+PyYAML>=6.0
+Jinja2>=3.0.0
+
+# TUI Dependency
+textual>=0.50.0 # Or latest stable
+
+# Local LLM Interaction (for Agent)
+requests>=2.25.0 # Already listed, pip handles duplicates
+
+# Development & Code Quality Tools
+ruff>=0.1.0 # Linter & Formatter
+mypy>=1.8.0 # Type checker
+pytest>=7.0.0 # Testing framework
+black>=24.0.0 # Formatter
