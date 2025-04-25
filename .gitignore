@@ -1,3 +1,4 @@
 
 # Ignore Ansible Vault Password File
 ~/.ansible_vault_pass
+ansible_run.log
