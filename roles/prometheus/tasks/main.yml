@@ -1,5 +1,5 @@
 # File: roles/prometheus/tasks/main.yml
-# Version: Cleaned - Removed duplicate compose task & misplaced PPA check
+# Version: Final Cleaned
 
 - name: Ensure Prometheus directories exist
   ansible.builtin.file:
@@ -21,7 +21,7 @@
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
-  # notify: HandlerIfNeeded # Consider adding notify if config changes should restart service
+  # notify: Restart Prometheus container # Add if handler needed for config changes
   tags: [prometheus, config]
 
 - name: Ensure Docker Compose V2 is available
@@ -39,7 +39,7 @@
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
     mode: '0644'
-  # notify: HandlerIfNeeded # Consider adding notify if this change should restart service
+  # notify: Restart Prometheus container # Add if handler needed for compose changes
   tags: [prometheus, config]
 
 - name: Ensure potentially conflicting container is absent
@@ -60,5 +60,5 @@
     state: present
     pull: missing
   register: compose_result
-  # notify: HandlerIfNeeded
+  # notify: Restart Prometheus container # Add if handler needed
   tags: [prometheus, docker, run]

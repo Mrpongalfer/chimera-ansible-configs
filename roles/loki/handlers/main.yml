@@ -2,12 +2,8 @@
 # File: roles/loki/handlers/main.yml
 - name: Restart Loki container
   # Ensures the Loki stack defined by the template is running.
-  # 'state: present' typically recreates containers if the definition hash changes.
   community.docker.docker_compose_v2:
     project_name: loki_stack # Must match the project_name used in the task
     definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Read template definition relative to this handler file
     state: present # Ensure services are running per the definition
-    # removed restarted: true (invalid)
-    # removed project_src (using definition)
-    # Consider recreate: 'always' if state: present isn't forceful enough for simple config file changes
   become: yes # Docker operations usually require privileges

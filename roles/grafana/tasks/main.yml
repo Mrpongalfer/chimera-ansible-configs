@@ -14,7 +14,6 @@
     - "{{ grafana_data_dir }}" # Needed only if mounting host data dir directly (Docker volume is preferred)
   tags: [grafana, config]
 
-# --- Start: Corrected Grafana Task Snippet ---
 - name: Ensure Grafana Docker Compose project is running
   community.docker.docker_compose_v2:
     project_name: grafana_stack # ADDED project_name
@@ -22,4 +21,3 @@
     state: present
     pull: missing
   tags: [grafana, docker, run]
-# --- End: Corrected Grafana Task Snippet ---

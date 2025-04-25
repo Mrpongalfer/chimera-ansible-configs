@@ -23,8 +23,6 @@ scrape_configs:
 
   - job_name: 'node_exporter'
     # Scrape Node Exporter running on hosts defined in inventory
-    # If using Docker network for node_exporter, target internal names instead.
-    # Assuming node_exporter runs directly on hosts (port 9100) based on playbook.
     static_configs:
       - targets:
           # Server Host (aiseed) - Using direct IP for clarity
