@@ -1,5 +1,5 @@
 # File: roles/prometheus/templates/docker-compose.yml.j2
-# Version: Merged Remote Changes + Correct Local Network Config
+# Version: FINAL - Merged Remote Changes + Correct Network Config
 
 # Define network locally scoped to this project (prometheus_stack)
 # Loki/Grafana will reference this as prometheus_stack_monitoring_net externally.
@@ -19,7 +19,7 @@ services:
       - "{{ prometheus_data_dir }}:/prometheus"
     ports:
       # Use variable from play vars (site.yml) for host port
-      - "{{ prometheus_port }}:9090" # Now uses 'prometheus_port' consistent with site.yml
+      - "{{ prometheus_port }}:9090" # Uses 'prometheus_port' consistent with site.yml
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'

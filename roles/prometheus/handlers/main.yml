@@ -1,15 +1,20 @@
 ---
-# Handlers for Prometheus role - v1.1 Corrected Syntax
-
+# File: roles/prometheus/handlers/main.yml
 - name: Restart Prometheus container
-  # This ensures the service defined in compose is running, effectively restarting if definition changed
+  # Ensures the Prometheus stack defined by the template is running.
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}" # Var from play vars (site.yml)
-    state: present
+    project_name: prometheus_stack # Must match the project_name used in the task
+    definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Read template definition relative to this handler file
+    state: present     # Ensure services are running per the definition
+    # recreate: 'always' # Use if state:present isn't forceful enough for config file changes
+  become: yes
 
+# Optional handler if compose file itself needs restart separate from config file change
+# Rename notification in task if using this: notify: Start Prometheus container
 - name: Start Prometheus container
-  # This ensures the service defined in compose is running
   community.docker.docker_compose_v2:
-    project_src: "{{ prometheus_compose_dir }}" # Var from play vars (site.yml)
+    project_name: prometheus_stack
+    definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}"
     state: present
-
+    started: true # Ensures containers are started if stopped
+  become: yes
