@@ -86,7 +86,7 @@
     project_name: qo_stack
     project_src: "{{ qo_deploy_dir }}" # Point to dir containing docker-compose.yml and app_code context
     # definition: ... # REMOVED - reads from file via project_src now
-    build: policy # Build images if needed based on compose file definition
+    build: always
     state: present
     pull: missing # Pull base images like postgres, ollama if not present
   become: yes
