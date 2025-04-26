@@ -79,7 +79,7 @@
 - name: Ensure Quantum Orchestrator stack is running via Docker Compose (includes build)
   community.docker.docker_compose_v2:
     project_name: qo_stack              # Explicit project name
-    # project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition instead
+    project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition instead
     definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template content
     build: policy                     # CORRECTED: Use 'policy' (build if missing)
     state: present
