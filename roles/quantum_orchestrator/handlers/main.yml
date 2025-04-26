@@ -1,11 +1,12 @@
 ---
 # File: roles/quantum_orchestrator/handlers/main.yml
 - name: Restart Quantum Orchestrator stack
+  # Ensures the QO stack defined by the template is running.
   community.docker.docker_compose_v2:
-    project_name: qo_stack
-    project_src: "{{ qo_deploy_dir }}" # Use directory containing compose file
-    state: present
-    restarted: true # Use restart flag for handlers if available and desired
-    # definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Can use definition too
-    # state: present # 'present' alone might recreate if definition changed
+    project_name: qo_stack # Must match the project_name used in the task
+    # project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition
+    definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Read template definition relative to handler file
+    state: present # Ensure services are running per the definition
+    # recreate: 'always' # Consider if state: present isn't enough for config reloads
+    # restarted: true # REMOVED - Invalid parameter
   become: yes
