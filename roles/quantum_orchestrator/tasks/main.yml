@@ -44,7 +44,7 @@
   become: yes # Need become to write to /opt/docker/... and set ownership
   tags: [quantum_orchestrator, config, code_sync]
 
-- name: Ensure PostgreSQL data directory permissions (if host mount used instead of volume)
+#- name: Ensure PostgreSQL data directory permissions (if host mount used instead of volume)
   # This task is only strictly necessary if you change docker-compose.yml.j2
   # to mount a host directory instead of the 'qo_postgres_data' volume.
   # Keeping it commented out as the compose file uses a Docker volume.
@@ -55,8 +55,8 @@
   #   group: "999" # Default postgres group ID in official image
   #   mode: '0700' # Postgres requires strict permissions
   # become: yes
-  tags: [quantum_orchestrator, config, permissions]
-  when: false # Disabled by default as docker volume is used
+#  tags: [quantum_orchestrator, config, permissions]
+#  when: false # Disabled by default as docker volume is used
 
 - name: Ensure Ollama data directory permissions
   # Set permissions on the host directory that will be mounted into the Ollama container
