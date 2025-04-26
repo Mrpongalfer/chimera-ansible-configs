@@ -1,6 +1,6 @@
 ---
 # File: roles/quantum_orchestrator/tasks/main.yml
-# Deploys Quantum Orchestrator App, PostgreSQL DB, and Ollama LLM Service
+# Version: FINAL - Deploys Quantum Orchestrator App, PostgreSQL DB, Ollama LLM Service
 
 - name: Ensure required Vault variables are defined (placeholders)
   ansible.builtin.assert:
@@ -23,68 +23,73 @@
     path: "{{ item }}"
     state: directory
     owner: "{{ docker_run_user | default('root') }}" # User defined in site.yml server play
-    group: "{{ docker_run_group | default('root') }}" # Group defined in site.yml server play
-    mode: "0755"
+    group: "{{ docker_run_group | default('root') }}"# Group defined in site.yml server play
+    mode: '0755'
   loop:
     - "{{ qo_deploy_dir }}"
     - "{{ qo_deploy_dir }}/app_code" # Directory to sync source code to for build
     - "{{ qo_deploy_dir }}/ollama_data" # Ollama models persistent storage
+    # Add pg_data dir here ONLY if you intend to mount host path instead of docker volume for postgres
+    # - "{{ qo_postgres_data_dir | default(qo_deploy_dir ~ '/pg_data') }}"
   become: yes
   tags: [quantum_orchestrator, config]
 
-# --- Start: Replace 'synchronize' task with this 'copy' task ---
 - name: Copy application code to server for building (using Copy module)
   ansible.builtin.copy:
     src: "{{ qo_local_code_path }}/" # Path on control node (pong)
     dest: "{{ qo_deploy_dir }}/app_code/" # Path on server (aiseed)
     owner: "{{ docker_run_user | default('root') }}" # Set owner on target
     group: "{{ docker_run_group | default('root') }}"# Set group on target
-    mode: '0755' # Set reasonable directory/file mode
+    mode: '0755' # Set reasonable directory/file mode for source code
   become: yes # Need become to write to /opt/docker/... and set ownership
   tags: [quantum_orchestrator, config, code_sync]
-# --- End: Replaced Task ---
 
-- name: Ensure PostgreSQL data directory permissions (if needed by image)
-  ansible.builtin.file:
-    path: "{{ qo_postgres_data_dir | default(qo_deploy_dir ~ '/pg_data') }}"
-    state: directory
-    owner: "999" # Default postgres user ID in official image
-    group: "999" # Default postgres group ID in official image
-    mode: "0700" # Postgres requires strict permissions
-  become: yes
+- name: Ensure PostgreSQL data directory permissions (if host mount used instead of volume)
+  # This task is only strictly necessary if you change docker-compose.yml.j2
+  # to mount a host directory instead of the 'qo_postgres_data' volume.
+  # Keeping it commented out as the compose file uses a Docker volume.
+  # ansible.builtin.file:
+  #   path: "{{ qo_postgres_data_dir | default(qo_deploy_dir ~ '/pg_data') }}"
+  #   state: directory
+  #   owner: "999" # Default postgres user ID in official image
+  #   group: "999" # Default postgres group ID in official image
+  #   mode: '0700' # Postgres requires strict permissions
+  # become: yes
   tags: [quantum_orchestrator, config, permissions]
+  when: false # Disabled by default as docker volume is used
 
 - name: Ensure Ollama data directory permissions
+  # Set permissions on the host directory that will be mounted into the Ollama container
   ansible.builtin.file:
     path: "{{ qo_deploy_dir }}/ollama_data"
     state: directory
-    owner: "101" # Common default Ollama UID - VERIFY IF NEEDED
-    group: "102" # Common default Ollama GID - VERIFY IF NEEDED
-    mode: "0755"
+    owner: "101" # Common default Ollama UID - VERIFY IF NEEDED based on chosen image/runtime
+    group: "102" # Common default Ollama GID - VERIFY IF NEEDED based on chosen image/runtime
+    mode: '0755'
   become: yes
   tags: [quantum_orchestrator, config, permissions]
 
 - name: Template Docker Compose file for Quantum Orchestrator Stack
+  # Render the compose template to the deployment directory on the server
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ qo_deploy_dir }}/docker-compose.yml"
+    dest: "{{ qo_deploy_dir }}/docker-compose.yml" # Render to final location
     owner: "{{ docker_run_user | default('root') }}"
     group: "{{ docker_run_group | default('root') }}"
-    mode: "0644"
+    mode: '0644'
   become: yes
-  notify: Restart Quantum Orchestrator stack
+  notify: Restart Quantum Orchestrator stack # Notify if template changes
   tags: [quantum_orchestrator, config]
 
-# --- Start: Corrected Docker Compose Task ---
-- name: Ensure Quantum Orchestrator stack is running via Docker Compose (includes build)
+- name: Ensure Quantum Orchestrator stack is running via Docker Compose (builds from file)
+  # Run docker compose using the file templated in the previous step
   community.docker.docker_compose_v2:
-    project_name: qo_stack              # Explicit project name
-    project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition instead
-    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template content
-    build: policy                     # CORRECTED: Use 'policy' (build if missing)
+    project_name: qo_stack
+    project_src: "{{ qo_deploy_dir }}" # Point to dir containing the docker-compose.yml
+    # definition: ... # REMOVED - reading from file via project_src now
+    build: policy # Build images if needed based on compose file definition
     state: present
-    pull: missing                     # Pull base images if not present locally
+    pull: missing # Pull base images like postgres, ollama
   become: yes
-  notify: Restart Quantum Orchestrator stack # Notify handler on changes
+  notify: Restart Quantum Orchestrator stack # Notify if compose brings things up/changes them
   tags: [quantum_orchestrator, docker, run]
-# --- End: Corrected Docker Compose Task ---
