@@ -86,9 +86,9 @@
     project_name: qo_stack
     project_src: "{{ qo_deploy_dir }}" # Point to dir containing docker-compose.yml and app_code context
     # definition: ... # REMOVED - reads from file via project_src now
-    build: policy
+    # build: policy
     state: present
-    pull: missing # Pull base images like postgres, ollama if not present
+    pull: always # Pull base images like postgres, ollama if not present
   become: yes
   notify: Restart Quantum Orchestrator stack # Notify if compose brings things up/changes them
   tags: [quantum_orchestrator, docker, run]

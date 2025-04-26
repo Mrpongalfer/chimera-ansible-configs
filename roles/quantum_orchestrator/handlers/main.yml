@@ -4,8 +4,8 @@
   # Ensures the QO stack defined by the template is running.
   community.docker.docker_compose_v2:
     project_name: qo_stack # Must match the project_name used in the task
-    # project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition
-    definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Read template definition relative to handler file
+    project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition
+    # definition: "{{ lookup('template', '../templates/docker-compose.yml.j2') | from_yaml }}" # Read template definition relative to handler file
     state: present # Ensure services are running per the definition
     # recreate: 'always' # Consider if state: present isn't enough for config reloads
     # restarted: true # REMOVED - Invalid parameter
