@@ -75,13 +75,16 @@
   notify: Restart Quantum Orchestrator stack
   tags: [quantum_orchestrator, config]
 
+# --- Start: Corrected Docker Compose Task ---
 - name: Ensure Quantum Orchestrator stack is running via Docker Compose (includes build)
   community.docker.docker_compose_v2:
-    project_name: qo_stack # Project name for this stack
-    project_src: "{{ qo_deploy_dir }}" # Directory containing the docker-compose.yml
-    build: yes # Build images if Dockerfile is present and image not found/outdated
+    project_name: qo_stack              # Explicit project name
+    # project_src: "{{ qo_deploy_dir }}" # REMOVED - Use definition instead
+    definition: "{{ lookup('template', 'docker-compose.yml.j2') | from_yaml }}" # Embed template content
+    build: policy                     # CORRECTED: Use 'policy' (build if missing)
     state: present
-    pull: missing # Pull base images if not present
+    pull: missing                     # Pull base images if not present locally
   become: yes
-  notify: Restart Quantum Orchestrator stack # Notify on changes
+  notify: Restart Quantum Orchestrator stack # Notify handler on changes
   tags: [quantum_orchestrator, docker, run]
+# --- End: Corrected Docker Compose Task ---
